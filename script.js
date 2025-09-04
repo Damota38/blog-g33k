@@ -40,8 +40,10 @@ auth.onAuthStateChanged(async (user) => {
             if (userDoc.exists) {
                 const userData = userDoc.data();
                 isAdmin = userData.role === 'admin';
-                document.getElementById('userInfo').textContent = 
-                    `Bonjour, ${userData.displayName || user.email}`;
+                const userInfoElement = document.getElementById('userInfo');
+                if (userInfoElement) {
+                    userInfoElement.textContent = `Bonjour, ${userData.displayName || user.email}`;
+                }
             } else {
                 // Créer le profil si inexistant
                 await db.collection('users').doc(user.uid).set({
@@ -56,22 +58,33 @@ auth.onAuthStateChanged(async (user) => {
         }
 
         // Mise à jour de l'interface
-        document.getElementById('loginBtn').style.display = 'none';
-        document.getElementById('registerBtn').style.display = 'none';
-        document.getElementById('logoutBtn').style.display = 'block';
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const adminPanel = document.getElementById('adminPanel');
         
-        if (isAdmin) {
-            document.getElementById('adminPanel').style.display = 'block';
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (registerBtn) registerBtn.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'block';
+        
+        if (isAdmin && adminPanel) {
+            adminPanel.style.display = 'block';
         }
     } else {
         console.log('👤 Utilisateur déconnecté');
         
         // Réinitialisation
-        document.getElementById('userInfo').textContent = '';
-        document.getElementById('loginBtn').style.display = 'block';
-        document.getElementById('registerBtn').style.display = 'block';
-        document.getElementById('logoutBtn').style.display = 'none';
-        document.getElementById('adminPanel').style.display = 'none';
+        const userInfoElement = document.getElementById('userInfo');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const adminPanel = document.getElementById('adminPanel');
+        
+        if (userInfoElement) userInfoElement.textContent = '';
+        if (loginBtn) loginBtn.style.display = 'block';
+        if (registerBtn) registerBtn.style.display = 'block';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (adminPanel) adminPanel.style.display = 'none';
         isAdmin = false;
     }
     
@@ -84,30 +97,127 @@ auth.onAuthStateChanged(async (user) => {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
     // Boutons d'authentification
-    document.getElementById('loginBtn').addEventListener('click', 
-        () => openModal('loginModal'));
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
     
-    document.getElementById('registerBtn').addEventListener('click', 
-        () => openModal('registerModal'));
+    if (loginBtn) {
+        loginBtn.addEventListener('click', () => openModal('loginModal'));
+    }
     
-    document.getElementById('logoutBtn').addEventListener('click', logout);
+    if (registerBtn) {
+        registerBtn.addEventListener('click', () => openModal('registerModal'));
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
     
     // Bouton nouvel article (admin)
     const newArticleBtn = document.getElementById('newArticleBtn');
     if (newArticleBtn) {
         newArticleBtn.addEventListener('click', () => {
             currentEditingArticle = null;
-            document.getElementById('articleModalTitle').textContent = 'Nouvel Article';
-            document.getElementById('articleForm').reset();
+            const articleModalTitle = document.getElementById('articleModalTitle');
+            const articleForm = document.getElementById('articleForm');
+            
+            if (articleModalTitle) {
+                articleModalTitle.textContent = 'Nouvel Article';
+            }
+            if (articleForm) {
+                articleForm.reset();
+            }
             openModal('articleModal');
         });
     }
     
     // Formulaires
-    document.getElementById('loginForm').addEventListener('submit', handleLogin);
-    document.getElementById('registerForm').addEventListener('submit', handleRegister);
-    document.getElementById('articleForm').addEventListener('submit', handleArticleSubmit);
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const articleForm = document.getElementById('articleForm');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+    if (registerForm) {
+        registerForm.addEventListener('submit', handleRegister);
+    }
+    if (articleForm) {
+        articleForm.addEventListener('submit', handleArticleSubmit);
+    }
 });
+
+// ========================================
+// FONCTIONS UTILITAIRES MANQUANTES
+// ========================================
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function showMessage(message, type) {
+    // Créer ou utiliser un élément pour afficher les messages
+    let messageElement = document.getElementById('messageContainer');
+    
+    if (!messageElement) {
+        messageElement = document.createElement('div');
+        messageElement.id = 'messageContainer';
+        messageElement.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            min-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        `;
+        document.body.appendChild(messageElement);
+    }
+    
+    messageElement.textContent = message;
+    messageElement.className = type === 'success' ? 'message-success' : 'message-error';
+    messageElement.style.backgroundColor = type === 'success' ? '#4CAF50' : '#f44336';
+    messageElement.style.display = 'block';
+    
+    // Auto-hide après 5 secondes
+    setTimeout(() => {
+        messageElement.style.display = 'none';
+    }, 5000);
+}
+
+function loadArticles() {
+    // Fonction placeholder - implémentez selon vos besoins
+    if (typeof loadArticlesImplementation === 'function') {
+        loadArticlesImplementation();
+    } else {
+        console.log('📰 Chargement des articles...');
+        // Implémentation basique
+        if (!isLoadingArticles) {
+            isLoadingArticles = true;
+            // Votre logique de chargement ici
+            isLoadingArticles = false;
+        }
+    }
+}
+
+function handleArticleSubmit(e) {
+    // Fonction placeholder - implémentez selon vos besoins
+    e.preventDefault();
+    console.log('📝 Soumission d\'article...');
+    // Votre logique de soumission d'article ici
+}
 
 // ========================================
 // CONNEXION
@@ -115,15 +225,27 @@ document.addEventListener('DOMContentLoaded', () => {
 async function handleLogin(e) {
     e.preventDefault();
     
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
+    const emailElement = document.getElementById('loginEmail');
+    const passwordElement = document.getElementById('loginPassword');
+    
+    if (!emailElement || !passwordElement) {
+        showMessage('Éléments de formulaire manquants', 'error');
+        return;
+    }
+    
+    const email = emailElement.value;
+    const password = passwordElement.value;
     
     try {
         console.log('🔐 Tentative de connexion...');
         await auth.signInWithEmailAndPassword(email, password);
         closeModal('loginModal');
         showMessage('✅ Connexion réussie !', 'success');
-        document.getElementById('loginForm').reset();
+        
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.reset();
+        }
     } catch (error) {
         console.error('Erreur de connexion:', error);
         
@@ -153,9 +275,18 @@ async function handleLogin(e) {
 async function handleRegister(e) {
     e.preventDefault();
     
-    const name = document.getElementById('registerName').value;
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
+    const nameElement = document.getElementById('registerName');
+    const emailElement = document.getElementById('registerEmail');
+    const passwordElement = document.getElementById('registerPassword');
+    
+    if (!nameElement || !emailElement || !passwordElement) {
+        showMessage('Éléments de formulaire manquants', 'error');
+        return;
+    }
+    
+    const name = nameElement.value;
+    const email = emailElement.value;
+    const password = passwordElement.value;
     
     try {
         console.log('📝 Création du compte...');
@@ -179,7 +310,11 @@ async function handleRegister(e) {
         
         closeModal('registerModal');
         showMessage('✅ Inscription réussie ! Bienvenue ' + name, 'success');
-        document.getElementById('registerForm').reset();
+        
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.reset();
+        }
         
     } catch (error) {
         console.error('Erreur d\'inscription:', error);
@@ -216,21 +351,35 @@ function logout() {
     }
 }
 
+// ========================================
+// FONCTIONS DE RECHERCHE ET UTILITAIRES
+// ========================================
 async function searchArticles(searchTerm) {
-    const snapshot = await db.collection('articles')
-        .where('published', '==', true)
-        .get();
-    
-    const results = [];
-    snapshot.forEach(doc => {
-        const article = doc.data();
-        if (article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            article.content.toLowerCase().includes(searchTerm.toLowerCase())) {
-            results.push({ id: doc.id, data: article });
-        }
-    });
-    
-    displaySearchResults(results);
+    try {
+        const snapshot = await db.collection('articles')
+            .where('published', '==', true)
+            .get();
+        
+        const results = [];
+        snapshot.forEach(doc => {
+            const article = doc.data();
+            if (article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                article.content.toLowerCase().includes(searchTerm.toLowerCase())) {
+                results.push({ id: doc.id, data: article });
+            }
+        });
+        
+        displaySearchResults(results);
+    } catch (error) {
+        console.error('Erreur lors de la recherche:', error);
+        showMessage('Erreur lors de la recherche', 'error');
+    }
+}
+
+function displaySearchResults(results) {
+    // Fonction placeholder - implémentez selon vos besoins
+    console.log('🔍 Résultats de recherche:', results);
+    // Votre logique d'affichage ici
 }
 
 // JavaScript pour le toggle
@@ -239,47 +388,73 @@ function toggleDarkMode() {
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
 }
 
-// Au chargement
+// Au chargement du mode sombre
 if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
 }
 
+// ========================================
+// PAGINATION
+// ========================================
 let lastVisible = null;
 const articlesPerPage = 10;
 
 async function loadArticlesWithPagination(isNext = true) {
-    let query = db.collection('articles')
-        .where('published', '==', true)
-        .orderBy('createdAt', 'desc')
-        .limit(articlesPerPage);
-    
-    if (isNext && lastVisible) {
-        query = query.startAfter(lastVisible);
-    }
-    
-    const snapshot = await query.get();
-    
-    if (!snapshot.empty) {
-        lastVisible = snapshot.docs[snapshot.docs.length - 1];
-        // Afficher les articles...
+    try {
+        let query = db.collection('articles')
+            .where('published', '==', true)
+            .orderBy('createdAt', 'desc')
+            .limit(articlesPerPage);
+        
+        if (isNext && lastVisible) {
+            query = query.startAfter(lastVisible);
+        }
+        
+        const snapshot = await query.get();
+        
+        if (!snapshot.empty) {
+            lastVisible = snapshot.docs[snapshot.docs.length - 1];
+            // Afficher les articles...
+            console.log('📰 Articles chargés:', snapshot.docs.length);
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement des articles:', error);
+        showMessage('Erreur lors du chargement des articles', 'error');
     }
 }
 
+// ========================================
+// UPLOAD D'IMAGES
+// ========================================
 async function uploadImage(file) {
-    const storageRef = firebase.storage().ref();
-    const imageRef = storageRef.child('images/' + Date.now() + '_' + file.name);
-    
-    const snapshot = await imageRef.put(file);
-    const downloadURL = await snapshot.ref.getDownloadURL();
-    
-    return downloadURL;
+    try {
+        const storageRef = firebase.storage().ref();
+        const imageRef = storageRef.child('images/' + Date.now() + '_' + file.name);
+        
+        const snapshot = await imageRef.put(file);
+        const downloadURL = await snapshot.ref.getDownloadURL();
+        
+        return downloadURL;
+    } catch (error) {
+        console.error('Erreur lors de l\'upload:', error);
+        showMessage('Erreur lors de l\'upload de l\'image', 'error');
+        return null;
+    }
 }
 
-// Dans votre formulaire d'article
-document.getElementById('imageInput').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        const imageUrl = await uploadImage(file);
-        // Insérer l'URL dans le contenu de l'article
+// Gestionnaire d'événement pour l'upload d'image
+document.addEventListener('DOMContentLoaded', () => {
+    const imageInput = document.getElementById('imageInput');
+    if (imageInput) {
+        imageInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const imageUrl = await uploadImage(file);
+                if (imageUrl) {
+                    console.log('✅ Image uploadée:', imageUrl);
+                    // Insérer l'URL dans le contenu de l'article
+                }
+            }
+        });
     }
 });
