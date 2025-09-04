@@ -1,15 +1,7 @@
 // ========================================
 // CONFIGURATION FIREBASE
 // ========================================
-// IMPORTANT : Remplacez par votre propre configuration !
-const firebaseConfig = {
-  apiKey: "AIzaSyAQlgfSP8vXHQWWjGECHie3QdvbgsGQ0Ek",
-  authDomain: "blog-g33k.firebaseapp.com",
-  projectId: "blog-g33k",
-  storageBucket: "blog-g33k.firebasestorage.app",
-  messagingSenderId: "30345195046",
-  appId: "1:30345195046:web:abc459bc5612d0087140e7"
-};
+// La configuration Firebase est maintenant dans config.js (non versionnée)
 
 // Initialisation de Firebase
 firebase.initializeApp(firebaseConfig);
