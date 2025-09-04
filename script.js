@@ -3,12 +3,12 @@
 // ========================================
 // IMPORTANT : Remplacez par votre propre configuration !
 const firebaseConfig = {
-    apiKey: "VOTRE_API_KEY",
-    authDomain: "VOTRE_AUTH_DOMAIN",
-    projectId: "VOTRE_PROJECT_ID",
-    storageBucket: "VOTRE_STORAGE_BUCKET",
-    messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
-    appId: "VOTRE_APP_ID"
+  apiKey: "AIzaSyAQlgfSP8vXHQWWjGECHie3QdvbgsGQ0Ek",
+  authDomain: "blog-g33k.firebaseapp.com",
+  projectId: "blog-g33k",
+  storageBucket: "blog-g33k.firebasestorage.app",
+  messagingSenderId: "30345195046",
+  appId: "1:30345195046:web:abc459bc5612d0087140e7"
 };
 
 // Initialisation de Firebase
