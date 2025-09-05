@@ -191,20 +191,30 @@ function showMessage(message, type) {
     }, 5000);
 }
 
+// ========================================
+// SYSTÈME DE COMMENTAIRES ET LIKES/DISLIKES
+// ========================================
+
+// Variables globales pour les réactions
+let userReactions = {}; // Cache des réactions de l'utilisateur
+let articleStats = {}; // Cache des statistiques des articles
+
+// ========================================
+// MISE À JOUR DE LA FONCTION loadArticles()
+// ========================================
 function loadArticles() {
     console.log('📰 Chargement des articles...');
     
     if (isLoadingArticles) return;
     isLoadingArticles = true;
     
-    const container = document.getElementById('articlesContainer'); // Bon ID
+    const container = document.getElementById('articlesContainer');
     if (!container) {
         console.error('Container articles non trouvé');
         isLoadingArticles = false;
         return;
     }
     
-    // Afficher le spinner
     container.innerHTML = `
         <div class="loading">
             <div class="spinner"></div>
@@ -213,12 +223,11 @@ function loadArticles() {
     `;
     
     try {
-        // Charger depuis Firestore
         db.collection('articles')
             .where('published', '==', true)
             .orderBy('createdAt', 'desc')
             .get()
-            .then(snapshot => {
+            .then(async snapshot => {
                 if (snapshot.empty) {
                     container.innerHTML = `
                         <div class="loading">
@@ -229,32 +238,21 @@ function loadArticles() {
                     return;
                 }
                 
+                // Charger les réactions de l'utilisateur si connecté
+                if (currentUser) {
+                    await loadUserReactions();
+                }
+                
                 let articlesHTML = '';
+                const articlePromises = [];
+                
                 snapshot.forEach(doc => {
-                    const article = doc.data();
-                    const articleDate = article.createdAt ? article.createdAt.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
-                    
-                    articlesHTML += `
-                        <div class="article-card">
-                            <div class="article-header">
-                                <h2 class="article-title">${article.title}</h2>
-                                ${isAdmin ? `
-                                    <div class="article-actions">
-                                        <button onclick="editArticle('${doc.id}')" class="btn-secondary btn-small">Modifier</button>
-                                        <button onclick="deleteArticle('${doc.id}')" class="btn-danger btn-small">Supprimer</button>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            <div class="article-meta">
-                                <span>📅 ${articleDate}</span>
-                                <span>👤 ${article.author || 'Auteur inconnu'}</span>
-                            </div>
-                            <div class="article-content">${article.content}</div>
-                        </div>
-                    `;
+                    articlePromises.push(buildArticleHTML(doc.id, doc.data()));
                 });
                 
-                container.innerHTML = articlesHTML;
+                const articleHTMLs = await Promise.all(articlePromises);
+                container.innerHTML = articleHTMLs.join('');
+                
                 console.log('✅ Articles chargés avec succès');
             })
             .catch(error => {
@@ -273,6 +271,360 @@ function loadArticles() {
         isLoadingArticles = false;
     }
 }
+
+// ========================================
+// CONSTRUCTION HTML DES ARTICLES AVEC RÉACTIONS
+// ========================================
+async function buildArticleHTML(articleId, article) {
+    const articleDate = article.createdAt ? article.createdAt.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
+    
+    // Récupérer les statistiques de l'article
+    const stats = await getArticleStats(articleId);
+    const userReaction = userReactions[articleId] || null;
+    
+    // Récupérer les commentaires
+    const comments = await getArticleComments(articleId);
+    
+    return `
+        <div class="article-card" data-article-id="${articleId}">
+            <div class="article-header">
+                <h2 class="article-title">${article.title}</h2>
+                ${isAdmin ? `
+                    <div class="article-actions">
+                        <button onclick="editArticle('${articleId}')" class="btn-secondary btn-small">Modifier</button>
+                        <button onclick="deleteArticle('${articleId}')" class="btn-danger btn-small">Supprimer</button>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="article-meta">
+                <span>📅 ${articleDate}</span>
+                <span>👤 ${article.author || 'Auteur inconnu'}</span>
+            </div>
+            <div class="article-content">${article.content}</div>
+            
+            <!-- Système de réactions -->
+            <div class="reactions">
+                <button onclick="toggleReaction('${articleId}', 'like')" 
+                        class="reaction-btn ${userReaction === 'like' ? 'active like' : ''}">
+                    👍 <span id="likes-${articleId}">${stats.likes}</span>
+                </button>
+                <button onclick="toggleReaction('${articleId}', 'dislike')" 
+                        class="reaction-btn ${userReaction === 'dislike' ? 'active dislike' : ''}">
+                    👎 <span id="dislikes-${articleId}">${stats.dislikes}</span>
+                </button>
+                <button onclick="toggleComments('${articleId}')" class="reaction-btn">
+                    💬 ${comments.length} commentaire(s)
+                </button>
+            </div>
+            
+            <!-- Section des commentaires -->
+            <div id="comments-section-${articleId}" class="comments-section" style="display: none;">
+                ${currentUser ? `
+                    <form onsubmit="addComment(event, '${articleId}')" class="comment-form">
+                        <textarea id="comment-input-${articleId}" placeholder="Écrivez votre commentaire..." required></textarea>
+                        <button type="submit" class="btn-primary btn-small">Commenter</button>
+                    </form>
+                ` : '<p class="login-prompt">Connectez-vous pour commenter</p>'}
+                
+                <div id="comments-list-${articleId}" class="comments-list">
+                    ${buildCommentsHTML(comments)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ========================================
+// GESTION DES RÉACTIONS (LIKES/DISLIKES)
+// ========================================
+async function toggleReaction(articleId, reactionType) {
+    if (!currentUser) {
+        showMessage('Connectez-vous pour réagir', 'error');
+        return;
+    }
+    
+    try {
+        const reactionRef = db.collection('reactions').doc(`${currentUser.uid}_${articleId}`);
+        const reactionDoc = await reactionRef.get();
+        
+        let newReaction = null;
+        
+        if (reactionDoc.exists) {
+            const currentReaction = reactionDoc.data().type;
+            
+            if (currentReaction === reactionType) {
+                // Supprimer la réaction si c'est la même
+                await reactionRef.delete();
+            } else {
+                // Changer le type de réaction
+                newReaction = reactionType;
+                await reactionRef.update({
+                    type: reactionType,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        } else {
+            // Créer une nouvelle réaction
+            newReaction = reactionType;
+            await reactionRef.set({
+                userId: currentUser.uid,
+                articleId: articleId,
+                type: reactionType,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        // Mettre à jour le cache local
+        userReactions[articleId] = newReaction;
+        
+        // Rafraîchir l'affichage des compteurs
+        await updateReactionCounters(articleId);
+        
+    } catch (error) {
+        console.error('Erreur lors de la réaction:', error);
+        showMessage('Erreur lors de l\'enregistrement de votre réaction', 'error');
+    }
+}
+
+async function updateReactionCounters(articleId) {
+    try {
+        const stats = await getArticleStats(articleId);
+        
+        // Mettre à jour l'affichage
+        const likesSpan = document.getElementById(`likes-${articleId}`);
+        const dislikesSpan = document.getElementById(`dislikes-${articleId}`);
+        
+        if (likesSpan) likesSpan.textContent = stats.likes;
+        if (dislikesSpan) dislikesSpan.textContent = stats.dislikes;
+        
+        // Mettre à jour les classes des boutons
+        const articleCard = document.querySelector(`[data-article-id="${articleId}"]`);
+        if (articleCard) {
+            const likeBtn = articleCard.querySelector('.reaction-btn:nth-child(1)');
+            const dislikeBtn = articleCard.querySelector('.reaction-btn:nth-child(2)');
+            
+            // Reset des classes
+            likeBtn.className = 'reaction-btn';
+            dislikeBtn.className = 'reaction-btn';
+            
+            // Application de la classe active
+            const userReaction = userReactions[articleId];
+            if (userReaction === 'like') {
+                likeBtn.classList.add('active', 'like');
+            } else if (userReaction === 'dislike') {
+                dislikeBtn.classList.add('active', 'dislike');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour des compteurs:', error);
+    }
+}
+
+// ========================================
+// GESTION DES COMMENTAIRES
+// ========================================
+function toggleComments(articleId) {
+    const commentsSection = document.getElementById(`comments-section-${articleId}`);
+    if (commentsSection) {
+        const isVisible = commentsSection.style.display !== 'none';
+        commentsSection.style.display = isVisible ? 'none' : 'block';
+    }
+}
+
+async function addComment(event, articleId) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showMessage('Connectez-vous pour commenter', 'error');
+        return;
+    }
+    
+    const commentInput = document.getElementById(`comment-input-${articleId}`);
+    const content = commentInput.value.trim();
+    
+    if (!content) {
+        showMessage('Le commentaire ne peut pas être vide', 'error');
+        return;
+    }
+    
+    try {
+        const commentData = {
+            articleId: articleId,
+            userId: currentUser.uid,
+            author: currentUser.displayName || currentUser.email,
+            content: content,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await db.collection('comments').add(commentData);
+        
+        // Vider le champ de saisie
+        commentInput.value = '';
+        
+        // Rafraîchir les commentaires
+        await refreshComments(articleId);
+        
+        showMessage('Commentaire ajouté avec succès', 'success');
+        
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du commentaire:', error);
+        showMessage('Erreur lors de l\'ajout du commentaire', 'error');
+    }
+}
+
+async function refreshComments(articleId) {
+    try {
+        const comments = await getArticleComments(articleId);
+        const commentsList = document.getElementById(`comments-list-${articleId}`);
+        
+        if (commentsList) {
+            commentsList.innerHTML = buildCommentsHTML(comments);
+        }
+        
+        // Mettre à jour le compteur de commentaires
+        const commentButton = document.querySelector(`[onclick="toggleComments('${articleId}')"]`);
+        if (commentButton) {
+            commentButton.innerHTML = `💬 ${comments.length} commentaire(s)`;
+        }
+        
+    } catch (error) {
+        console.error('Erreur lors du rafraîchissement des commentaires:', error);
+    }
+}
+
+function buildCommentsHTML(comments) {
+    if (comments.length === 0) {
+        return '<p class="no-comments">Aucun commentaire pour le moment.</p>';
+    }
+    
+    return comments.map(comment => {
+        const commentDate = comment.createdAt ? 
+            comment.createdAt.toDate().toLocaleDateString('fr-FR', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : 'Date inconnue';
+            
+        const canDelete = currentUser && (
+            currentUser.uid === comment.userId || isAdmin
+        );
+        
+        return `
+            <div class="comment" data-comment-id="${comment.id}">
+                <div class="comment-header">
+                    <span class="comment-author">${comment.author}</span>
+                    <span class="comment-date">${commentDate}</span>
+                    ${canDelete ? `
+                        <button onclick="deleteComment('${comment.id}', '${comment.articleId}')" 
+                                class="btn-danger btn-small">
+                            🗑️
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="comment-content">${comment.content}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function deleteComment(commentId, articleId) {
+    if (!confirm('Supprimer ce commentaire ?')) return;
+    
+    try {
+        await db.collection('comments').doc(commentId).delete();
+        await refreshComments(articleId);
+        showMessage('Commentaire supprimé', 'success');
+    } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        showMessage('Erreur lors de la suppression', 'error');
+    }
+}
+
+// ========================================
+// FONCTIONS UTILITAIRES
+// ========================================
+async function loadUserReactions() {
+    if (!currentUser) return;
+    
+    try {
+        const snapshot = await db.collection('reactions')
+            .where('userId', '==', currentUser.uid)
+            .get();
+        
+        userReactions = {};
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            userReactions[data.articleId] = data.type;
+        });
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des réactions:', error);
+    }
+}
+
+async function getArticleStats(articleId) {
+    try {
+        const likesSnapshot = await db.collection('reactions')
+            .where('articleId', '==', articleId)
+            .where('type', '==', 'like')
+            .get();
+        
+        const dislikesSnapshot = await db.collection('reactions')
+            .where('articleId', '==', articleId)
+            .where('type', '==', 'dislike')
+            .get();
+        
+        return {
+            likes: likesSnapshot.size,
+            dislikes: dislikesSnapshot.size
+        };
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des stats:', error);
+        return { likes: 0, dislikes: 0 };
+    }
+}
+
+async function getArticleComments(articleId) {
+    try {
+        const snapshot = await db.collection('comments')
+            .where('articleId', '==', articleId)
+            .orderBy('createdAt', 'desc')
+            .get();
+        
+        const comments = [];
+        snapshot.forEach(doc => {
+            comments.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        return comments;
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des commentaires:', error);
+        return [];
+    }
+}
+
+// Mettre à jour l'observer d'authentification pour recharger les réactions
+const originalAuthObserver = auth.onAuthStateChanged;
+auth.onAuthStateChanged = async (user) => {
+    // Appeler l'observer original
+    await originalAuthObserver(user);
+    
+    // Recharger les réactions si l'utilisateur change
+    if (user) {
+        await loadUserReactions();
+    } else {
+        userReactions = {};
+    }
+};
 
 // Remplacer la fonction handleArticleSubmit() vide par :
 function handleArticleSubmit(e) {
