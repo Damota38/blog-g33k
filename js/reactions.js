@@ -192,15 +192,20 @@ class ReactionService {
     // Obtenir la liste des utilisateurs qui ont liké un article
     async getLikesList(articleId) {
         try {
+            console.log('🔍 Récupération des likes pour article:', articleId);
+            
+            // D'abord essayer sans orderBy pour éviter les problèmes d'index
             const snapshot = await this.db.collection('reactions')
                 .where('articleId', '==', articleId)
                 .where('type', '==', 'like')
-                .orderBy('createdAt', 'desc')
                 .get();
+
+            console.log('📊 Résultats bruts:', snapshot.size, 'likes trouvés');
 
             const likes = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
+                console.log('👤 Like trouvé:', data);
                 likes.push({
                     id: doc.id,
                     userEmail: data.userEmail,
@@ -208,9 +213,20 @@ class ReactionService {
                 });
             });
 
+            // Trier manuellement par date décroissante
+            likes.sort((a, b) => {
+                if (!a.createdAt || !b.createdAt) return 0;
+                const dateA = a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+                const dateB = b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                return dateB - dateA;
+            });
+
+            console.log('✅ Likes traités:', likes);
             return likes;
         } catch (error) {
-            console.error('Erreur lors de la récupération de la liste des likes:', error);
+            console.error('❌ Erreur lors de la récupération de la liste des likes:', error);
+            console.error('Code d\'erreur:', error.code);
+            console.error('Message:', error.message);
             return [];
         }
     }
@@ -218,15 +234,20 @@ class ReactionService {
     // Obtenir la liste des utilisateurs qui ont disliké un article
     async getDislikesList(articleId) {
         try {
+            console.log('🔍 Récupération des dislikes pour article:', articleId);
+            
+            // D'abord essayer sans orderBy pour éviter les problèmes d'index
             const snapshot = await this.db.collection('reactions')
                 .where('articleId', '==', articleId)
                 .where('type', '==', 'dislike')
-                .orderBy('createdAt', 'desc')
                 .get();
+
+            console.log('📊 Résultats bruts:', snapshot.size, 'dislikes trouvés');
 
             const dislikes = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
+                console.log('👎 Dislike trouvé:', data);
                 dislikes.push({
                     id: doc.id,
                     userEmail: data.userEmail,
@@ -234,9 +255,20 @@ class ReactionService {
                 });
             });
 
+            // Trier manuellement par date décroissante
+            dislikes.sort((a, b) => {
+                if (!a.createdAt || !b.createdAt) return 0;
+                const dateA = a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+                const dateB = b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                return dateB - dateA;
+            });
+
+            console.log('✅ Dislikes traités:', dislikes);
             return dislikes;
         } catch (error) {
-            console.error('Erreur lors de la récupération de la liste des dislikes:', error);
+            console.error('❌ Erreur lors de la récupération de la liste des dislikes:', error);
+            console.error('Code d\'erreur:', error.code);
+            console.error('Message:', error.message);
             return [];
         }
     }
