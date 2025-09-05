@@ -145,7 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.style.display = 'flex';
+        modal.style.display = 'flex'; // Utilise flexbox pour centrer
+        modal.classList.add('active');
     }
 }
 
@@ -153,6 +154,7 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'none';
+        modal.classList.remove('active');
     }
 }
 
@@ -190,25 +192,191 @@ function showMessage(message, type) {
 }
 
 function loadArticles() {
-    // Fonction placeholder - implémentez selon vos besoins
-    if (typeof loadArticlesImplementation === 'function') {
-        loadArticlesImplementation();
-    } else {
-        console.log('📰 Chargement des articles...');
-        // Implémentation basique
-        if (!isLoadingArticles) {
-            isLoadingArticles = true;
-            // Votre logique de chargement ici
-            isLoadingArticles = false;
-        }
+    console.log('📰 Chargement des articles...');
+    
+    if (isLoadingArticles) return;
+    isLoadingArticles = true;
+    
+    const container = document.getElementById('articlesContainer'); // Bon ID
+    if (!container) {
+        console.error('Container articles non trouvé');
+        isLoadingArticles = false;
+        return;
+    }
+    
+    // Afficher le spinner
+    container.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Chargement des articles...
+        </div>
+    `;
+    
+    try {
+        // Charger depuis Firestore
+        db.collection('articles')
+            .where('published', '==', true)
+            .orderBy('createdAt', 'desc')
+            .get()
+            .then(snapshot => {
+                if (snapshot.empty) {
+                    container.innerHTML = `
+                        <div class="loading">
+                            <p>Aucun article publié pour le moment.</p>
+                            ${isAdmin ? '<button onclick="openModal(\'articleModal\')" class="btn-primary">Créer le premier article</button>' : ''}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let articlesHTML = '';
+                snapshot.forEach(doc => {
+                    const article = doc.data();
+                    const articleDate = article.createdAt ? article.createdAt.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
+                    
+                    articlesHTML += `
+                        <div class="article-card">
+                            <div class="article-header">
+                                <h2 class="article-title">${article.title}</h2>
+                                ${isAdmin ? `
+                                    <div class="article-actions">
+                                        <button onclick="editArticle('${doc.id}')" class="btn-secondary btn-small">Modifier</button>
+                                        <button onclick="deleteArticle('${doc.id}')" class="btn-danger btn-small">Supprimer</button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="article-meta">
+                                <span>📅 ${articleDate}</span>
+                                <span>👤 ${article.author || 'Auteur inconnu'}</span>
+                            </div>
+                            <div class="article-content">${article.content}</div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = articlesHTML;
+                console.log('✅ Articles chargés avec succès');
+            })
+            .catch(error => {
+                console.error('❌ Erreur lors du chargement:', error);
+                container.innerHTML = `
+                    <div class="loading">
+                        <p>❌ Erreur lors du chargement des articles</p>
+                        <button onclick="loadArticles()" class="btn-primary">Réessayer</button>
+                    </div>
+                `;
+            });
+    } catch (error) {
+        console.error('❌ Erreur:', error);
+        container.innerHTML = '<div class="loading">❌ Erreur de connexion</div>';
+    } finally {
+        isLoadingArticles = false;
     }
 }
 
+// Remplacer la fonction handleArticleSubmit() vide par :
 function handleArticleSubmit(e) {
-    // Fonction placeholder - implémentez selon vos besoins
     e.preventDefault();
     console.log('📝 Soumission d\'article...');
-    // Votre logique de soumission d'article ici
+    
+    if (!currentUser || !isAdmin) {
+        showMessage('❌ Accès refusé', 'error');
+        return;
+    }
+    
+    const title = document.getElementById('articleTitle').value.trim();
+    const content = document.getElementById('articleContent').value.trim();
+    const published = document.getElementById('articlePublished').checked;
+    
+    if (!title || !content) {
+        showMessage('❌ Titre et contenu requis', 'error');
+        return;
+    }
+    
+    const articleData = {
+        title: title,
+        content: content,
+        published: published,
+        author: currentUser.displayName || currentUser.email,
+        authorId: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (currentEditingArticle) {
+        // Modification
+        db.collection('articles').doc(currentEditingArticle).update(articleData)
+            .then(() => {
+                showMessage('✅ Article modifié avec succès', 'success');
+                closeModal('articleModal');
+                loadArticles();
+                currentEditingArticle = null;
+            })
+            .catch(error => {
+                console.error('❌ Erreur de modification:', error);
+                showMessage('❌ Erreur lors de la modification', 'error');
+            });
+    } else {
+        // Création
+        db.collection('articles').add(articleData)
+            .then(() => {
+                showMessage('✅ Article créé avec succès', 'success');
+                closeModal('articleModal');
+                loadArticles();
+                document.getElementById('articleForm').reset();
+            })
+            .catch(error => {
+                console.error('❌ Erreur de création:', error);
+                showMessage('❌ Erreur lors de la création', 'error');
+            });
+    }
+}
+
+// Fonctions manquantes pour la gestion des articles
+function editArticle(articleId) {
+    if (!isAdmin) {
+        showMessage('❌ Accès refusé', 'error');
+        return;
+    }
+    
+    db.collection('articles').doc(articleId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const article = doc.data();
+                currentEditingArticle = articleId;
+                
+                // Pré-remplir le formulaire
+                document.getElementById('articleTitle').value = article.title;
+                document.getElementById('articleContent').value = article.content;
+                document.getElementById('articlePublished').checked = article.published;
+                document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
+                
+                openModal('articleModal');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur lors de la récupération:', error);
+            showMessage('❌ Erreur lors de la récupération de l\'article', 'error');
+        });
+}
+
+function deleteArticle(articleId) {
+    if (!isAdmin) {
+        showMessage('❌ Accès refusé', 'error');
+        return;
+    }
+    
+    if (confirm('❓ Êtes-vous sûr de vouloir supprimer cet article ?')) {
+        db.collection('articles').doc(articleId).delete()
+            .then(() => {
+                showMessage('🗑️ Article supprimé', 'success');
+                loadArticles();
+            })
+            .catch(error => {
+                console.error('❌ Erreur de suppression:', error);
+                showMessage('❌ Erreur lors de la suppression', 'error');
+            });
+    }
 }
 
 // ========================================
