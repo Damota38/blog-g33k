@@ -30,8 +30,8 @@ body {
    HEADER
    ===================== */
 header {
-    background: rgba(245, 169, 255, 0.95);
-    backdrop-filter: blur(10px);
+    background: #ff6be1;
+    background: radial-gradient(circle,rgba(255, 107, 225, 1) 0%, rgba(48, 145, 255, 1) 100%);
     padding: 20px;
     border: 1px solid #ff69e8;
     border-radius: 10px;
