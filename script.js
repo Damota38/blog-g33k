@@ -139,13 +139,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ========================================
-// FONCTIONS UTILITAIRES MANQUANTES
-// ========================================
+// =====================
+// FONCTIONS UTILITAIRES
+// =====================
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.style.display = 'flex'; // Utilise flexbox pour centrer
+        modal.style.display = 'flex';
         modal.classList.add('active');
     }
 }
@@ -159,6 +159,7 @@ function closeModal(modalId) {
 }
 
 function showMessage(message, type) {
+
     // Créer ou utiliser un élément pour afficher les messages
     let messageElement = document.getElementById('messageContainer');
     
@@ -272,9 +273,9 @@ function loadArticles() {
     }
 }
 
-// ========================================
+// =============================================
 // CONSTRUCTION HTML DES ARTICLES AVEC RÉACTIONS
-// ========================================
+// =============================================
 async function buildArticleHTML(articleId, article) {
     const articleDate = article.createdAt ? article.createdAt.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
     
@@ -334,9 +335,9 @@ async function buildArticleHTML(articleId, article) {
     `;
 }
 
-// ========================================
+// ======================================
 // GESTION DES RÉACTIONS (LIKES/DISLIKES)
-// ========================================
+// ======================================
 async function toggleReaction(articleId, reactionType) {
     if (!currentUser) {
         showMessage('Connectez-vous pour réagir', 'error');
@@ -422,9 +423,9 @@ async function updateReactionCounters(articleId) {
     }
 }
 
-// ========================================
+// ========================
 // GESTION DES COMMENTAIRES
-// ========================================
+// ========================
 function toggleComments(articleId) {
     const commentsSection = document.getElementById(`comments-section-${articleId}`);
     if (commentsSection) {
@@ -544,9 +545,9 @@ async function deleteComment(commentId, articleId) {
     }
 }
 
-// ========================================
+// =====================
 // FONCTIONS UTILITAIRES
-// ========================================
+// =====================
 async function loadUserReactions() {
     if (!currentUser) return;
     
@@ -626,7 +627,6 @@ auth.onAuthStateChanged = async (user) => {
     }
 };
 
-// Remplacer la fonction handleArticleSubmit() vide par :
 function handleArticleSubmit(e) {
     e.preventDefault();
     console.log('📝 Soumission d\'article...');
@@ -731,9 +731,9 @@ function deleteArticle(articleId) {
     }
 }
 
-// ========================================
+// =========
 // CONNEXION
-// ========================================
+// =========
 async function handleLogin(e) {
     e.preventDefault();
     
@@ -781,9 +781,9 @@ async function handleLogin(e) {
     }
 }
 
-// ========================================
+// ===========
 // INSCRIPTION
-// ========================================
+// ===========
 async function handleRegister(e) {
     e.preventDefault();
     
@@ -847,9 +847,9 @@ async function handleRegister(e) {
     }
 }
 
-// ========================================
+// ===========
 // DÉCONNEXION
-// ========================================
+// ===========
 function logout() {
     if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
         auth.signOut()
@@ -863,9 +863,9 @@ function logout() {
     }
 }
 
-// ========================================
+// =====================================
 // FONCTIONS DE RECHERCHE ET UTILITAIRES
-// ========================================
+// =====================================
 async function searchArticles(searchTerm) {
     try {
         const snapshot = await db.collection('articles')
@@ -905,9 +905,9 @@ if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark-mode');
 }
 
-// ========================================
+// ==========
 // PAGINATION
-// ========================================
+// ==========
 let lastVisible = null;
 const articlesPerPage = 10;
 
@@ -935,9 +935,9 @@ async function loadArticlesWithPagination(isNext = true) {
     }
 }
 
-// ========================================
+// ===============
 // UPLOAD D'IMAGES
-// ========================================
+// ===============
 async function uploadImage(file) {
     try {
         const storageRef = firebase.storage().ref();
