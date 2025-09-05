@@ -1,0 +1,82 @@
+/* ========================================
+   VARIABLES CSS ET THÈMES
+   ======================================== */
+
+:root {
+  /* Couleurs principales */
+  --primary-color: #667eea;
+  --primary-dark: #5a67d8;
+  --secondary-color: #764ba2;
+  --accent-color: #4CAF50;
+  --danger-color: #f44336;
+  --warning-color: #ff9800;
+  
+  /* Couleurs de thème clair */
+  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --text-primary: #333;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --border-color: #e0e0e0;
+  --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 10px 30px rgba(0, 0, 0, 0.1);
+  --shadow-heavy: 0 15px 40px rgba(0, 0, 0, 0.15);
+  
+  /* Espacements */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  
+  /* Rayons de bordure */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  
+  /* Typographie */
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.5s ease;
+}
+
+/* Thème sombre */
+body.dark-mode {
+  --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  --card-bg: rgba(40, 44, 52, 0.95);
+  --text-primary: #f7fafc;
+  --text-secondary: #e2e8f0;
+  --text-muted: #a0aec0;
+  --border-color: #4a5568;
+  --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-heavy: 0 15px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* Classes utilitaires pour les messages */
+.message-success {
+  background-color: var(--accent-color) !important;
+}
+
+.message-error {
+  background-color: var(--danger-color) !important;
+}
+
+.message-warning {
+  background-color: var(--warning-color) !important;
+}
+
+.message-info {
+  background-color: var(--primary-color) !important;
+}

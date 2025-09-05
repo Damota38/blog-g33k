@@ -189,26 +189,93 @@ function showMessage(message, type) {
     }, 5000);
 }
 
-function loadArticles() {
-    // Fonction placeholder - implémentez selon vos besoins
-    if (typeof loadArticlesImplementation === 'function') {
-        loadArticlesImplementation();
-    } else {
-        console.log('📰 Chargement des articles...');
-        // Implémentation basique
-        if (!isLoadingArticles) {
-            isLoadingArticles = true;
-            // Votre logique de chargement ici
-            isLoadingArticles = false;
+async function loadArticles() {
+    if (isLoadingArticles) return;
+    
+    try {
+        isLoadingArticles = true;
+        const container = document.getElementById('articlesContainer');
+        
+        if (!container) return;
+        
+        // Afficher le loading
+        container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des articles...</div>';
+        
+        // Récupérer les articles publiés, triés par date
+        const snapshot = await db.collection('articles')
+            .where('published', '==', true)
+            .orderBy('createdAt', 'desc')
+            .limit(10)
+            .get();
+        
+        container.innerHTML = '';
+        
+        if (snapshot.empty) {
+            container.innerHTML = '<div class="no-articles">Aucun article pour le moment.</div>';
+            return;
         }
+        
+        // Afficher chaque article
+        snapshot.forEach(doc => {
+            const article = doc.data();
+            const articleElement = createArticleElement(doc.id, article);
+            container.appendChild(articleElement);
+        });
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des articles:', error);
+        const container = document.getElementById('articlesContainer');
+        if (container) {
+            container.innerHTML = '<div class="error">Erreur lors du chargement des articles</div>';
+        }
+    } finally {
+        isLoadingArticles = false;
     }
 }
 
-function handleArticleSubmit(e) {
-    // Fonction placeholder - implémentez selon vos besoins
+async function handleArticleSubmit(e) {
     e.preventDefault();
-    console.log('📝 Soumission d\'article...');
-    // Votre logique de soumission d'article ici
+
+    const form = e.target;
+    const titre = form.querySelector('#articleTitle').value.trim();
+    const contenu = form.querySelector('#articleContent').value.trim();
+    const published = form.querySelector('#articlePublished').checked;
+
+    if (!titre || !contenu) {
+        showMessage("⚠️ Veuillez remplir tous les champs !", "error");
+        return;
+    }
+
+    try {
+        const article = {
+            author: currentUser ? currentUser.email : "anonyme",
+            title: titre,
+            content: contenu,
+            published: published,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (currentEditingArticle) {
+            // 🔄 Mise à jour d'un article existant
+            const updateData = { ...article };
+            delete updateData.createdAt; // Ne pas modifier la date de création
+            await db.collection("articles").doc(currentEditingArticle).update(updateData);
+            showMessage("✅ Article mis à jour avec succès", "success");
+            currentEditingArticle = null;
+        } else {
+            // ➕ Création d'un nouvel article
+            await db.collection("articles").add(article);
+            showMessage("✅ Nouvel article ajouté", "success");
+        }
+
+        form.reset();
+        closeModal("articleModal");
+        loadArticles();
+    } catch (error) {
+        console.error("❌ Erreur lors de la soumission de l'article :", error);
+        showMessage("Erreur lors de l'enregistrement de l'article", "error");
+    }
 }
 
 // ========================================
@@ -368,10 +435,102 @@ async function searchArticles(searchTerm) {
     }
 }
 
+function createArticleElement(id, article) {
+    const articleDiv = document.createElement('div');
+    articleDiv.className = 'article-card';
+    articleDiv.innerHTML = `
+        <div class="article-header">
+            <h3>${escapeHtml(article.title)}</h3>
+            <div class="article-meta">
+                <span>Par ${escapeHtml(article.author)}</span>
+                <span>${formatDate(article.createdAt)}</span>
+            </div>
+        </div>
+        <div class="article-content">
+            <p>${escapeHtml(article.content).substring(0, 200)}${article.content.length > 200 ? '...' : ''}</p>
+        </div>
+        ${isAdmin ? `
+            <div class="article-actions">
+                <button onclick="editArticle('${id}')" class="btn-edit">✏️ Modifier</button>
+                <button onclick="deleteArticle('${id}')" class="btn-delete">🗑️ Supprimer</button>
+            </div>
+        ` : ''}
+    `;
+    return articleDiv;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(timestamp) {
+    if (!timestamp) return 'Date inconnue';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+async function editArticle(articleId) {
+    try {
+        const doc = await db.collection('articles').doc(articleId).get();
+        if (doc.exists) {
+            const article = doc.data();
+            
+            // Remplir le formulaire
+            document.getElementById('articleTitle').value = article.title;
+            document.getElementById('articleContent').value = article.content;
+            document.getElementById('articlePublished').checked = article.published;
+            
+            // Définir l'article en cours d'édition
+            currentEditingArticle = articleId;
+            
+            // Changer le titre du modal
+            document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
+            
+            // Ouvrir le modal
+            openModal('articleModal');
+        }
+    } catch (error) {
+        console.error('Erreur lors de la récupération de l\'article:', error);
+        showMessage('Erreur lors de la récupération de l\'article', 'error');
+    }
+}
+
+async function deleteArticle(articleId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) {
+        try {
+            await db.collection('articles').doc(articleId).delete();
+            showMessage('✅ Article supprimé avec succès', 'success');
+            loadArticles();
+        } catch (error) {
+            console.error('Erreur lors de la suppression:', error);
+            showMessage('Erreur lors de la suppression de l\'article', 'error');
+        }
+    }
+}
+
 function displaySearchResults(results) {
-    // Fonction placeholder - implémentez selon vos besoins
-    console.log('🔍 Résultats de recherche:', results);
-    // Votre logique d'affichage ici
+    const container = document.getElementById('articlesContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (results.length === 0) {
+        container.innerHTML = '<div class="no-articles">Aucun résultat trouvé.</div>';
+        return;
+    }
+    
+    results.forEach(result => {
+        const articleElement = createArticleElement(result.id, result.data);
+        container.appendChild(articleElement);
+    });
 }
 
 // JavaScript pour le toggle
