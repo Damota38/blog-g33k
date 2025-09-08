@@ -12,12 +12,24 @@
         <!-- Header avec authentification -->
         <header>
             <div class="header-content">
-                <h1>📝 Le blob G33K</h1>
+                <h1>📝 Le blog G33K</h1>
                 <div class="auth-section">
                     <span id="userInfo"></span>
                     <button id="loginBtn" class="btn-primary">Se connecter</button>
                     <button id="registerBtn" class="btn-secondary">S'inscrire</button>
                     <button id="logoutBtn" class="btn-danger" style="display:none;">Déconnexion</button>
+                    <div class="notification-container">
+            <button id="notificationBtn" class="notification-btn" onclick="toggleNotifications()">
+                🔔 <span id="notificationCount" class="notification-count">0</span>
+            </button>
+            <div id="notificationPanel" class="notification-panel" style="display:none;">
+                <h3>🔔 Notifications</h3>
+                <div id="notificationList" class="notification-list">
+                    <p class="no-notifications">Aucune notification</p>
+                </div>
+                <button onclick="clearAllNotifications()" class="btn-danger btn-small">Tout effacer</button>
+            </div>
+        </div>
                 </div>
             </div>
         </header>
@@ -122,4 +134,113 @@
     <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
+
+<!-- Progress bar de lecture (à ajouter après <body>) -->
+<div class="reading-progress" id="readingProgress"></div>
+
+
+<!-- Modal pour créer une nouvelle catégorie -->
+<div id="categoryModal" class="modal category-modal">
+    <div class="modal-content category-modal-content">
+        <h2>🏷️ Nouvelle catégorie</h2>
+        <form id="categoryForm">
+            <div class="form-group">
+                <label>Nom de la catégorie</label>
+                <input type="text" id="categoryName" required placeholder="ex: Tutoriels JavaScript">
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="categoryDescription" placeholder="Description de la catégorie..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Emoji</label>
+                <div class="emoji-picker">
+                    <div class="emoji-option" data-emoji="📝">📝</div>
+                    <div class="emoji-option" data-emoji="💻">💻</div>
+                    <div class="emoji-option" data-emoji="🎨">🎨</div>
+                    <div class="emoji-option" data-emoji="📊">📊</div>
+                    <div class="emoji-option" data-emoji="🔧">🔧</div>
+                    <div class="emoji-option" data-emoji="🚀">🚀</div>
+                    <div class="emoji-option" data-emoji="💡">💡</div>
+                    <div class="emoji-option" data-emoji="🎯">🎯</div>
+                    <div class="emoji-option" data-emoji="🌟">🌟</div>
+                    <div class="emoji-option" data-emoji="🔥">🔥</div>
+                    <div class="emoji-option" data-emoji="⚡">⚡</div>
+                    <div class="emoji-option" data-emoji="🎪">🎪</div>
+                    <div class="emoji-option" data-emoji="🎮">🎮</div>
+                    <div class="emoji-option" data-emoji="📱">📱</div>
+                    <div class="emoji-option" data-emoji="🌈">🌈</div>
+                    <div class="emoji-option" data-emoji="🎭">🎭</div>
+                </div>
+                <input type="hidden" id="selectedEmoji" value="📁">
+            </div>
+            
+            <div class="form-group">
+                <label>Couleur</label>
+                <div class="color-picker">
+                    <div class="color-option" data-color="#667eea" style="background: #667eea;"></div>
+                    <div class="color-option" data-color="#f093fb" style="background: #f093fb;"></div>
+                    <div class="color-option" data-color="#4facfe" style="background: #4facfe;"></div>
+                    <div class="color-option" data-color="#43e97b" style="background: #43e97b;"></div>
+                    <div class="color-option" data-color="#fa709a" style="background: #fa709a;"></div>
+                    <div class="color-option" data-color="#ff9a9e" style="background: #ff9a9e;"></div>
+                    <div class="color-option" data-color="#fecfef" style="background: #fecfef;"></div>
+                    <div class="color-option" data-color="#ffecd2" style="background: #ffecd2;"></div>
+                </div>
+                <input type="hidden" id="selectedColor" value="#667eea">
+            </div>
+            
+            <div class="form-group">
+                <label>Aperçu</label>
+                <div class="category-preview">
+                    <div class="preview-item" id="categoryPreview">📁 Nouvelle catégorie</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn-primary">Créer la catégorie</button>
+                <button type="button" onclick="closeModal('categoryModal')" class="btn-secondary">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Boutons d'actions flottants -->
+<div class="floating-actions">
+    <button class="floating-btn primary" data-tooltip="Retour en haut" onclick="scrollToTop()">
+        ↑
+    </button>
+    <button class="floating-btn secondary" data-tooltip="Mode sombre" onclick="toggleDarkMode()">
+        🌙
+    </button>
+</div>
+
+<!-- Statistiques en temps réel (mode développeur) -->
+<div class="live-stats" id="liveStats" style="display: none;">
+    <div>👥 Utilisateurs: <span id="activeUsers">0</span></div>
+    <div>📰 Articles: <span id="totalArticles">0</span></div>
+    <div>💬 Commentaires: <span id="totalComments">0</span></div>
+    <div>👍 Likes: <span id="totalLikes">0</span></div>
+    <div>⚡ Perf: <span id="pageLoadTime">0ms</span></div>
+</div>
+
+<!-- Indicateur de performance -->
+<div class="performance-indicator" id="performanceIndicator">
+    <span id="perfText">Loading...</span>
+</div>
+
+<!-- Footer du site -->
+<footer class="footer">
+    <div>
+        <p>© 2025 Blog G33K - Fait avec Firebase</p>
+        <div>
+            <a href="#" onclick="showPrivacyInfo()"> Confidentialité</a> |
+            <a href="#" onclick="toggleDevMode()"> Mode Dev</a> |
+            <a href="#" onclick="showAnalyticsInfo()"> Statistiques</a> |
+            <a href="#" onclick="exportData()"> Exporter mes données</a>
+        </div>
+    </div>
+</footer>
 </html>
