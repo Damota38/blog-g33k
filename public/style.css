@@ -102,6 +102,10 @@ button {
     font-size: 12px;
 }
 
+.btn-primary.btn-small {
+    margin-bottom: ;
+}
+
 /* =====================
    MODALS
    ===================== */
@@ -126,6 +130,7 @@ button {
 .modal-content {
     background: white;
     padding: 30px;
+    border: 2px solid black;
     border-radius: 10px;
     width: 90%;
     max-width: 500px;
