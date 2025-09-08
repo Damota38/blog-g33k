@@ -30,7 +30,7 @@ body {
    ===================== */
 header {
     background: #ff6be1;
-    background: radial-gradient(circle,rgba(255, 107, 225, 1) 0%, rgba(48, 145, 255, 1) 100%);
+    background: radial-gradient(circle, rgba(255, 107, 225, 1) 0%, rgba(48, 145, 255, 1) 100%);
     padding: 20px;
     border-radius: 10px;
     margin-bottom: 30px;
@@ -43,6 +43,20 @@ header {
     align-items: center;
     flex-wrap: wrap;
     gap: 20px;
+}
+
+.titlelogo {
+    display: flex;
+    flex-direction: row;
+    gap: 13px;
+}
+
+img {
+    width: 50px;
+    height: 50px;
+    border-radius: 20px;
+    border: 1px solid blueviolet;
+    box-shadow: 0px 0px 10px blueviolet;
 }
 
 h1 {
@@ -103,7 +117,7 @@ button {
 }
 
 .btn-primary.btn-small {
-    margin-bottom: ;
+    margin-bottom: 25px;
 }
 
 /* =====================
@@ -141,8 +155,13 @@ button {
    ANIMATIONS
    ===================== */
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideIn {
@@ -150,6 +169,7 @@ button {
         transform: translateY(-50px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -157,8 +177,13 @@ button {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* =====================
@@ -175,7 +200,8 @@ label {
     font-weight: 500;
 }
 
-input, textarea {
+input,
+textarea {
     width: 100%;
     padding: 10px;
     border: 2px solid #e0e0e0;
@@ -184,7 +210,8 @@ input, textarea {
     transition: border-color 0.3s ease;
 }
 
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
     outline: none;
     border-color: #667eea;
 }
@@ -246,8 +273,6 @@ textarea {
 .article-actions {
     display: flex;
     gap: 10px;
-    padding-top: 15px;
-    border-top: 1px solid #e0e0e0;
 }
 
 /* =====================
@@ -345,16 +370,16 @@ textarea {
         flex-direction: column;
         text-align: center;
     }
-    
+
     h1 {
         font-size: 1.5em;
     }
-    
+
     .modal-content {
         width: 95%;
         padding: 20px;
     }
-    
+
     .article-header {
         flex-direction: column;
         gap: 10px;
