@@ -384,6 +384,13 @@ textarea {
         flex-direction: column;
         gap: 10px;
     }
+
+    .titlelogo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 13px;
+}
 }
 
 /* CSS pour le mode sombre */
