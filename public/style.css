@@ -32,7 +32,6 @@ header {
     background: #ff6be1;
     background: radial-gradient(circle,rgba(255, 107, 225, 1) 0%, rgba(48, 145, 255, 1) 100%);
     padding: 20px;
-    border: 1px solid #ff69e8;
     border-radius: 10px;
     margin-bottom: 30px;
     box-shadow: 0 0px 30px rgb(255, 0, 212);
@@ -71,13 +70,13 @@ button {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #ea66d8 0%, #405fcd 100%);
+    background: #a100b6;
     color: white;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 0px 10px rgb(216, 0, 194);
 }
 
 .btn-secondary {
@@ -200,7 +199,7 @@ textarea {
 }
 
 .article-card {
-    background: rgb(186, 231, 255);
+    background: rgb(200, 236, 255);
     padding: 25px;
     border: 2px solid black;
     border-radius: 10px;
@@ -261,7 +260,7 @@ textarea {
     gap: 5px;
     padding: 5px 10px;
     background: #f5f5f5;
-    border: none;
+    border: 1px solid black;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -272,7 +271,7 @@ textarea {
 }
 
 .reaction-btn.active {
-    background: #667eea;
+    background: #ce32ed;
     color: white;
 }
 
@@ -309,11 +308,11 @@ textarea {
    UTILITAIRES
    ===================== */
 .admin-panel {
-    background: #fff3cd;
+    background: #fedbff;
     padding: 15px;
     border-radius: 5px;
     margin-bottom: 20px;
-    border-left: 4px solid #ffc107;
+    border-left: 4px solid #ea07ff;
 }
 
 .loading {
