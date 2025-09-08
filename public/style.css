@@ -12,11 +12,7 @@ body {
     font-family: 'Segoe UI', sans-serif;
     color: #333333;
     scroll-behavior: smooth;
-<<<<<<< HEAD
     background-image: url('images/geek-background.jpeg');
-=======
-    background-image: url('images/geek-background.jpeg') !important;
->>>>>>> main
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
