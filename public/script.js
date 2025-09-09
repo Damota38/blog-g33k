@@ -15,6 +15,20 @@ let currentUser = null;          // Utilisateur connecté
 let currentEditingArticle = null; // Article en cours d'édition
 let isAdmin = false;             // Statut admin
 let isLoadingArticles = false;   // Flag de chargement
+let allArticles = [];            // Cache de tous les articles
+let filteredArticles = [];      // Articles filtrés
+let searchTerm = '';             // Terme de recherche actuel
+let currentSort = 'newest';      // Tri actuel
+let currentAuthor = 'all';       // Filtre auteur actuel
+let articleMediaFiles = [];      // Fichiers médias pour l'article en cours
+let cloudinaryWidget = null;     // Widget Cloudinary
+let commentMediaFiles = {};      // Fichiers médias par commentaire (par articleId)
+let currentCommentArticleId = null; // ID de l'article pour le commentaire en cours
+let audioRecorderStates = {};    // États des enregistreurs audio
+let mediaRecorder = null;        // MediaRecorder global
+let audioChunks = [];           // Chunks audio en cours d'enregistrement
+let recordingInterval = null;   // Interval pour le timer
+let currentRecordingId = null;  // ID de l'enregistrement en cours
 
 // ========================================
 // OBSERVER D'AUTHENTIFICATION
@@ -119,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (articleForm) {
                 articleForm.reset();
             }
+            resetArticleMedia();
             openModal('articleModal');
         });
     }
@@ -137,6 +152,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (articleForm) {
         articleForm.addEventListener('submit', handleArticleSubmit);
     }
+    
+    // Event listeners pour la recherche et filtres
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const sortFilter = document.getElementById('sortFilter');
+    const authorFilter = document.getElementById('authorFilter');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(handleSearch, 300));
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSearch();
+            }
+        });
+    }
+    
+    if (searchBtn) {
+        searchBtn.addEventListener('click', handleSearch);
+    }
+    
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', clearSearch);
+    }
+    
+    if (sortFilter) {
+        sortFilter.addEventListener('change', handleSortChange);
+    }
+    
+    if (authorFilter) {
+        authorFilter.addEventListener('change', handleAuthorFilterChange);
+    }
+    
+    // Event listener pour l'upload de médias dans les articles
+    const addMediaBtn = document.getElementById('addMediaBtn');
+    if (addMediaBtn) {
+        addMediaBtn.addEventListener('click', openMediaUploadWidget);
+    }
+    
+    // Event listener pour l'enregistrement audio dans les articles
+    const addAudioBtn = document.getElementById('addAudioBtn');
+    if (addAudioBtn) {
+        addAudioBtn.addEventListener('click', () => toggleAudioRecorder('article'));
+    }
+    
+    const articleRecordBtn = document.getElementById('article-record-btn');
+    if (articleRecordBtn) {
+        articleRecordBtn.addEventListener('click', () => toggleRecording('article'));
+    }
+    
+    // Initialiser le widget Cloudinary
+    initializeCloudinaryWidget();
 });
 
 // =====================
@@ -236,6 +303,9 @@ function loadArticles() {
                             ${isAdmin ? '<button onclick="openModal(\'articleModal\')" class="btn-primary">Créer le premier article</button>' : ''}
                         </div>
                     `;
+                    allArticles = [];
+                    filteredArticles = [];
+                    updateAuthorFilter();
                     return;
                 }
                 
@@ -244,15 +314,20 @@ function loadArticles() {
                     await loadUserReactions();
                 }
                 
-                let articlesHTML = '';
-                const articlePromises = [];
-                
+                // Mettre à jour le cache des articles
+                allArticles = [];
                 snapshot.forEach(doc => {
-                    articlePromises.push(buildArticleHTML(doc.id, doc.data()));
+                    allArticles.push({
+                        id: doc.id,
+                        data: doc.data()
+                    });
                 });
                 
-                const articleHTMLs = await Promise.all(articlePromises);
-                container.innerHTML = articleHTMLs.join('');
+                // Mettre à jour le filtre des auteurs
+                updateAuthorFilter();
+                
+                // Appliquer les filtres et afficher
+                await filterAndDisplayArticles();
                 
                 console.log('✅ Articles chargés avec succès');
             })
@@ -277,6 +352,8 @@ function loadArticles() {
 // CONSTRUCTION HTML DES ARTICLES AVEC RÉACTIONS
 // =============================================
 async function buildArticleHTML(articleId, article) {
+    console.log('🏗️ Construction HTML article:', articleId, 'avec YouTube URL:', article.youtubeUrl);
+    
     const articleDate = article.createdAt ? article.createdAt.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
     
     // Récupérer les statistiques de l'article
@@ -302,6 +379,8 @@ async function buildArticleHTML(articleId, article) {
                 <span>👤 ${article.author || 'Auteur inconnu'}</span>
             </div>
             <div class="article-content">${article.content}</div>
+            ${buildYouTubeHTML(article.youtubeUrl)}
+            ${buildMediaHTML(article.mediaFiles, 'article')}
             
             <!-- Système de réactions -->
             <div class="reactions">
@@ -323,7 +402,22 @@ async function buildArticleHTML(articleId, article) {
                 ${currentUser ? `
                     <form onsubmit="addComment(event, '${articleId}')" class="comment-form">
                         <textarea id="comment-input-${articleId}" placeholder="Écrivez votre commentaire..." required></textarea>
-                        <button type="submit" class="btn-primary btn-small">Commenter</button>
+                        <div class="comment-media-section">
+                            <div class="media-buttons">
+                                <button type="button" onclick="openCommentMediaWidget('${articleId}')" class="btn-secondary btn-small">📎 Ajouter média</button>
+                                <button type="button" onclick="toggleAudioRecorder('${articleId}')" class="btn-secondary btn-small">🎤 Enregistrer audio</button>
+                            </div>
+                            <div id="comment-media-preview-${articleId}" class="comment-media-preview"></div>
+                            <div id="audio-recorder-${articleId}" class="audio-recorder" style="display: none;">
+                                <button type="button" id="record-btn-${articleId}" class="record-btn" onclick="toggleRecording('${articleId}')">🎤</button>
+                                <span id="recording-time-${articleId}" class="recording-time">00:00</span>
+                                <span id="recording-status-${articleId}" class="recording-status">Appuyez pour enregistrer</span>
+                                <audio id="audio-preview-${articleId}" style="display: none;" controls></audio>
+                            </div>
+                        </div>
+                        <div class="comment-form-actions">
+                            <button type="submit" class="btn-primary btn-small">Commenter</button>
+                        </div>
                     </form>
                 ` : '<p class="login-prompt">Connectez-vous pour commenter</p>'}
                 
@@ -456,13 +550,16 @@ async function addComment(event, articleId) {
             userId: currentUser.uid,
             author: currentUser.displayName || currentUser.email,
             content: content,
+            mediaFiles: commentMediaFiles[articleId] && commentMediaFiles[articleId].length > 0 
+                ? commentMediaFiles[articleId] : null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
         await db.collection('comments').add(commentData);
         
-        // Vider le champ de saisie
+        // Vider le champ de saisie et réinitialiser les médias
         commentInput.value = '';
+        resetCommentMedia(articleId);
         
         // Rafraîchir les commentaires
         await refreshComments(articleId);
@@ -527,6 +624,7 @@ function buildCommentsHTML(comments) {
                     ` : ''}
                 </div>
                 <div class="comment-content">${comment.content}</div>
+                ${buildMediaHTML(comment.mediaFiles, 'comment')}
             </div>
         `;
     }).join('');
@@ -638,6 +736,7 @@ function handleArticleSubmit(e) {
     
     const title = document.getElementById('articleTitle').value.trim();
     const content = document.getElementById('articleContent').value.trim();
+    const youtubeUrl = document.getElementById('articleYoutubeUrl').value.trim();
     const published = document.getElementById('articlePublished').checked;
     
     if (!title || !content) {
@@ -645,12 +744,20 @@ function handleArticleSubmit(e) {
         return;
     }
     
+    // Valider l'URL YouTube si fournie
+    if (youtubeUrl && !isValidYouTubeUrl(youtubeUrl)) {
+        showMessage('❌ URL YouTube invalide. Utilisez un lien YouTube valide.', 'error');
+        return;
+    }
+    
     const articleData = {
         title: title,
         content: content,
+        youtubeUrl: youtubeUrl || null,
         published: published,
         author: currentUser.displayName || currentUser.email,
         authorId: currentUser.uid,
+        mediaFiles: articleMediaFiles.length > 0 ? articleMediaFiles : null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -663,6 +770,7 @@ function handleArticleSubmit(e) {
                 closeModal('articleModal');
                 loadArticles();
                 currentEditingArticle = null;
+                resetArticleMedia();
             })
             .catch(error => {
                 console.error('❌ Erreur de modification:', error);
@@ -676,6 +784,7 @@ function handleArticleSubmit(e) {
                 closeModal('articleModal');
                 loadArticles();
                 document.getElementById('articleForm').reset();
+                resetArticleMedia();
             })
             .catch(error => {
                 console.error('❌ Erreur de création:', error);
@@ -700,8 +809,13 @@ function editArticle(articleId) {
                 // Pré-remplir le formulaire
                 document.getElementById('articleTitle').value = article.title;
                 document.getElementById('articleContent').value = article.content;
+                document.getElementById('articleYoutubeUrl').value = article.youtubeUrl || '';
                 document.getElementById('articlePublished').checked = article.published;
                 document.getElementById('articleModalTitle').textContent = 'Modifier l\'article';
+                
+                // Charger les médias existants
+                articleMediaFiles = article.mediaFiles || [];
+                updateMediaPreview();
                 
                 openModal('articleModal');
             }
@@ -864,34 +978,921 @@ function logout() {
 }
 
 // =====================================
-// FONCTIONS DE RECHERCHE ET UTILITAIRES
+// FONCTIONS DE RECHERCHE ET FILTRES
 // =====================================
-async function searchArticles(searchTerm) {
-    try {
-        const snapshot = await db.collection('articles')
-            .where('published', '==', true)
-            .get();
+
+// Fonction debounce pour limiter les appels de recherche
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Gestionnaire de recherche
+function handleSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    
+    if (searchInput) {
+        searchTerm = searchInput.value.trim().toLowerCase();
         
-        const results = [];
-        snapshot.forEach(doc => {
-            const article = doc.data();
-            if (article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                article.content.toLowerCase().includes(searchTerm.toLowerCase())) {
-                results.push({ id: doc.id, data: article });
-            }
-        });
+        if (searchTerm) {
+            clearBtn.style.display = 'block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
         
-        displaySearchResults(results);
-    } catch (error) {
-        console.error('Erreur lors de la recherche:', error);
-        showMessage('Erreur lors de la recherche', 'error');
+        filterAndDisplayArticles();
     }
 }
 
-function displaySearchResults(results) {
-    // Fonction placeholder - implémentez selon vos besoins
-    console.log('🔍 Résultats de recherche:', results);
-    // Votre logique d'affichage ici
+// Effacer la recherche
+function clearSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    
+    if (searchInput) {
+        searchInput.value = '';
+        searchTerm = '';
+        clearBtn.style.display = 'none';
+        filterAndDisplayArticles();
+    }
+}
+
+// Gestionnaire de changement de tri
+function handleSortChange() {
+    const sortFilter = document.getElementById('sortFilter');
+    if (sortFilter) {
+        currentSort = sortFilter.value;
+        filterAndDisplayArticles();
+    }
+}
+
+// Gestionnaire de filtre par auteur
+function handleAuthorFilterChange() {
+    const authorFilter = document.getElementById('authorFilter');
+    if (authorFilter) {
+        currentAuthor = authorFilter.value;
+        filterAndDisplayArticles();
+    }
+}
+
+// Filtrer et afficher les articles selon les critères
+async function filterAndDisplayArticles() {
+    console.log('🔍 Filtrage des articles...', { searchTerm, currentSort, currentAuthor });
+    
+    let filtered = [...allArticles];
+    
+    // Filtrage par terme de recherche
+    if (searchTerm) {
+        filtered = filtered.filter(article => 
+            article.data.title.toLowerCase().includes(searchTerm) ||
+            article.data.content.toLowerCase().includes(searchTerm) ||
+            (article.data.author && article.data.author.toLowerCase().includes(searchTerm))
+        );
+    }
+    
+    // Filtrage par auteur
+    if (currentAuthor !== 'all') {
+        filtered = filtered.filter(article => article.data.author === currentAuthor);
+    }
+    
+    // Tri des articles
+    filtered = await sortArticles(filtered, currentSort);
+    
+    filteredArticles = filtered;
+    displayArticles(filteredArticles);
+}
+
+// Fonction de tri des articles
+async function sortArticles(articles, sortType) {
+    const articlesWithStats = await Promise.all(
+        articles.map(async (article) => {
+            const stats = await getArticleStats(article.id);
+            const comments = await getArticleComments(article.id);
+            return {
+                ...article,
+                stats: stats,
+                commentsCount: comments.length
+            };
+        })
+    );
+    
+    switch (sortType) {
+        case 'newest':
+            return articlesWithStats.sort((a, b) => {
+                const dateA = a.data.createdAt ? a.data.createdAt.toDate() : new Date(0);
+                const dateB = b.data.createdAt ? b.data.createdAt.toDate() : new Date(0);
+                return dateB - dateA;
+            });
+        case 'oldest':
+            return articlesWithStats.sort((a, b) => {
+                const dateA = a.data.createdAt ? a.data.createdAt.toDate() : new Date(0);
+                const dateB = b.data.createdAt ? b.data.createdAt.toDate() : new Date(0);
+                return dateA - dateB;
+            });
+        case 'most-liked':
+            return articlesWithStats.sort((a, b) => b.stats.likes - a.stats.likes);
+        case 'most-commented':
+            return articlesWithStats.sort((a, b) => b.commentsCount - a.commentsCount);
+        default:
+            return articlesWithStats;
+    }
+}
+
+// Afficher les articles filtrés
+async function displayArticles(articles) {
+    const container = document.getElementById('articlesContainer');
+    if (!container) return;
+    
+    if (articles.length === 0) {
+        container.innerHTML = `
+            <div class="loading">
+                <p>Aucun article ne correspond à votre recherche.</p>
+                ${searchTerm ? '<button onclick="clearSearch()" class="btn-primary">Effacer la recherche</button>' : ''}
+            </div>
+        `;
+        return;
+    }
+    
+    try {
+        const articlePromises = articles.map(article => 
+            buildArticleHTML(article.id, article.data)
+        );
+        const articleHTMLs = await Promise.all(articlePromises);
+        container.innerHTML = articleHTMLs.join('');
+        
+        console.log(`✅ ${articles.length} articles affichés`);
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'affichage:', error);
+        container.innerHTML = '<div class="loading">❌ Erreur lors de l\'affichage des articles</div>';
+    }
+}
+
+// Mettre à jour la liste des auteurs dans le filtre
+function updateAuthorFilter() {
+    const authorFilter = document.getElementById('authorFilter');
+    if (!authorFilter) return;
+    
+    // Obtenir la liste unique des auteurs
+    const authors = [...new Set(allArticles.map(article => article.data.author).filter(Boolean))];
+    
+    // Garder l'option "Tous les auteurs" et ajouter les auteurs
+    const currentValue = authorFilter.value;
+    authorFilter.innerHTML = '<option value="all">Tous les auteurs</option>';
+    
+    authors.forEach(author => {
+        const option = document.createElement('option');
+        option.value = author;
+        option.textContent = author;
+        authorFilter.appendChild(option);
+    });
+    
+    // Restaurer la sélection
+    authorFilter.value = currentValue;
+}
+
+// =====================================
+// GESTION DES MÉDIAS - CLOUDINARY
+// =====================================
+
+// Initialiser le widget Cloudinary
+function initializeCloudinaryWidget() {
+    try {
+        if (typeof cloudinary === 'undefined') {
+            console.error('Cloudinary SDK non chargé');
+            showMessage('SDK Cloudinary non disponible', 'error');
+            return;
+        }
+        
+        cloudinaryWidget = cloudinary.createUploadWidget({
+            cloudName: cloudinaryConfig.cloudName,
+            uploadPreset: cloudinaryConfig.uploadPreset,
+            sources: ['local', 'url', 'camera'],
+            multiple: false,
+            maxFiles: 1,
+            maxFileSize: 10000000,
+            resourceType: 'auto',
+            clientAllowedFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov', 'avi'],
+            maxVideoFileSize: 50000000,
+            cropping: true,
+            croppingAspectRatio: null,
+            showSkipCropButton: true,
+            styles: {
+                palette: {
+                    window: "#FFFFFF",
+                    windowBorder: "#90A0B3",
+                    tabIcon: "#a100b6",
+                    menuIcons: "#5A616A",
+                    textDark: "#000000",
+                    textLight: "#FFFFFF",
+                    link: "#a100b6",
+                    action: "#a100b6",
+                    inactiveTabIcon: "#0E2F5A",
+                    error: "#F44336",
+                    inProgress: "#0078FF",
+                    complete: "#20B832",
+                    sourceBg: "#E4EBF1"
+                }
+            }
+        }, (error, result) => {
+            if (error) {
+                console.error('❌ Erreur Cloudinary:', error);
+                showMessage('Erreur lors de l\'upload du média: ' + error.message, 'error');
+                return;
+            }
+            
+            if (result && result.event === 'success') {
+                console.log('✅ Upload réussi:', result.info);
+                handleMediaUploadSuccess(result.info);
+            }
+            
+            if (result && result.event === 'close') {
+                console.log('🔒 Widget fermé');
+                currentCommentArticleId = null;
+            }
+        });
+        
+        console.log('✅ Widget Cloudinary créé:', cloudinaryWidget ? 'OK' : 'FAILED');
+    } catch (error) {
+        console.error('Erreur initialisation Cloudinary:', error);
+    }
+}
+
+// Ouvrir le widget d'upload
+function openMediaUploadWidget() {
+    console.log('🎯 Tentative d\'ouverture du widget Cloudinary...');
+    
+    if (typeof cloudinary === 'undefined') {
+        console.error('❌ SDK Cloudinary non chargé');
+        showMessage('SDK Cloudinary non disponible. Vérifiez votre connexion internet.', 'error');
+        return;
+    }
+    
+    if (!cloudinaryWidget) {
+        console.log('⚠️ Widget non initialisé, tentative de création...');
+        initializeCloudinaryWidget();
+        if (!cloudinaryWidget) {
+            showMessage('Impossible d\'initialiser le widget d\'upload', 'error');
+            return;
+        }
+    }
+    
+    try {
+        console.log('✅ Ouverture du widget...');
+        cloudinaryWidget.open();
+    } catch (error) {
+        console.error('❌ Erreur ouverture widget:', error);
+        showMessage('Erreur lors de l\'ouverture du widget: ' + error.message, 'error');
+    }
+}
+
+// Gérer le succès de l'upload
+function handleMediaUploadSuccess(result) {
+    const mediaData = {
+        publicId: result.public_id,
+        secureUrl: result.secure_url,
+        resourceType: result.resource_type,
+        format: result.format,
+        bytes: result.bytes,
+        width: result.width || null,
+        height: result.height || null,
+        duration: result.duration || null
+    };
+    
+    if (currentCommentArticleId) {
+        // Upload pour un commentaire
+        if (!commentMediaFiles[currentCommentArticleId]) {
+            commentMediaFiles[currentCommentArticleId] = [];
+        }
+        commentMediaFiles[currentCommentArticleId].push(mediaData);
+        updateCommentMediaPreview(currentCommentArticleId);
+    } else {
+        // Upload pour un article
+        articleMediaFiles.push(mediaData);
+        updateMediaPreview();
+    }
+    
+    showMessage('Média ajouté avec succès !', 'success');
+}
+
+// Mettre à jour la prévisualisation des médias
+function updateMediaPreview() {
+    const preview = document.getElementById('articleMediaPreview');
+    if (!preview) return;
+    
+    preview.innerHTML = articleMediaFiles.map((media, index) => {
+        const isVideo = media.resourceType === 'video';
+        const optimizedUrl = getOptimizedUrl(media.publicId, media.resourceType, 'thumbnail');
+        
+        return `
+            <div class="media-item" data-index="${index}">
+                ${media.isAudio ? 
+                    `<div class="audio-player">
+                        <audio controls>
+                            <source src="${media.secureUrl}" type="audio/webm">
+                            <source src="${media.secureUrl}" type="audio/ogg">
+                            Votre navigateur ne supporte pas l'audio.
+                        </audio>
+                    </div>` :
+                    (isVideo ? 
+                        `<video src="${optimizedUrl}" muted preload="metadata"></video>` :
+                        `<img src="${optimizedUrl}" alt="Média ${index + 1}">`
+                    )
+                }
+                <button class="remove-media" onclick="removeMedia(${index})" title="Supprimer">×</button>
+                <div class="media-info">
+                    ${media.isAudio ? '🎵' : (isVideo ? '🎥' : '🖼️')} ${formatFileSize(media.bytes)}
+                    ${media.duration ? ` • ${Math.round(media.duration)}s` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Supprimer un média
+function removeMedia(index) {
+    if (confirm('Supprimer ce média ?')) {
+        articleMediaFiles.splice(index, 1);
+        updateMediaPreview();
+        showMessage('Média supprimé', 'success');
+    }
+}
+
+// Formater la taille du fichier
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Réinitialiser les médias de l'article
+function resetArticleMedia() {
+    articleMediaFiles = [];
+    updateMediaPreview();
+}
+
+// Construire HTML pour afficher les médias d'un article
+function buildMediaHTML(mediaList, type = 'article') {
+    if (!mediaList || mediaList.length === 0) return '';
+    
+    const containerClass = type === 'article' ? 'article-media' : 'comment-media';
+    
+    return `
+        <div class="${containerClass}">
+            ${mediaList.map(media => {
+                const isVideo = media.resourceType === 'video';
+                const optimizedUrl = getOptimizedUrl(media.publicId, media.resourceType, type);
+                
+                if (media.isAudio) {
+                    return `
+                        <div class="audio-player">
+                            <audio controls>
+                                <source src="${media.secureUrl}" type="audio/webm">
+                                <source src="${media.secureUrl}" type="audio/ogg">
+                                Votre navigateur ne supporte pas l'audio.
+                            </audio>
+                        </div>
+                    `;
+                } else if (isVideo) {
+                    return `
+                        <div class="media-item">
+                            <video controls preload="metadata" src="${optimizedUrl}">
+                                Votre navigateur ne supporte pas la lecture de vidéos.
+                            </video>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="media-item">
+                            <img src="${optimizedUrl}" alt="Image" onclick="openMediaModal('${media.secureUrl}', 'image')" style="cursor: zoom-in;">
+                        </div>
+                    `;
+                }
+            }).join('')}
+        </div>
+    `;
+}
+
+// Ouvrir un modal pour afficher les médias en grand
+function openMediaModal(mediaUrl, mediaType) {
+    console.log('🔍 Ouverture modal média:', mediaType, mediaUrl);
+    
+    // Créer le modal s'il n'existe pas
+    let modal = document.getElementById('mediaModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'mediaModal';
+        modal.className = 'modal media-modal';
+        document.body.appendChild(modal);
+    }
+    
+    // Contenu du modal selon le type
+    let modalContent = '';
+    if (mediaType === 'image') {
+        modalContent = `
+            <div class="modal-content media-modal-content">
+                <span class="close-modal" onclick="closeMediaModal()">&times;</span>
+                <img src="${mediaUrl}" alt="Image en grand" onload="adjustModalImageSize(this)">
+            </div>
+        `;
+    } else if (mediaType === 'video') {
+        modalContent = `
+            <div class="modal-content media-modal-content">
+                <span class="close-modal" onclick="closeMediaModal()">&times;</span>
+                <video controls onloadedmetadata="adjustModalVideoSize(this)">
+                    <source src="${mediaUrl}">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+            </div>
+        `;
+    }
+    
+    modal.innerHTML = modalContent;
+    modal.style.display = 'flex';
+    
+    // Fermer en cliquant à côté
+    modal.onclick = function(e) {
+        if (e.target === modal) {
+            closeMediaModal();
+        }
+    };
+    
+    // Fermer avec Échap
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMediaModal();
+        }
+    });
+}
+
+// Ajuster la taille de l'image dans le modal
+function adjustModalImageSize(img) {
+    const maxWidth = window.innerWidth * 0.9;
+    const maxHeight = window.innerHeight * 0.9;
+    
+    // Calculer les dimensions optimales
+    let targetWidth = Math.min(img.naturalWidth, maxWidth);
+    let targetHeight = Math.min(img.naturalHeight, maxHeight);
+    
+    // Maintenir les proportions
+    const aspectRatio = img.naturalWidth / img.naturalHeight;
+    
+    if (targetWidth / targetHeight > aspectRatio) {
+        targetWidth = targetHeight * aspectRatio;
+    } else {
+        targetHeight = targetWidth / aspectRatio;
+    }
+    
+    // Tailles minimum pour une bonne visibilité
+    const minWidth = Math.min(400, maxWidth * 0.6);
+    const minHeight = Math.min(300, maxHeight * 0.6);
+    
+    targetWidth = Math.max(targetWidth, minWidth);
+    targetHeight = Math.max(targetHeight, minHeight);
+    
+    console.log(`📐 Image ajustée: ${targetWidth}x${targetHeight} (originale: ${img.naturalWidth}x${img.naturalHeight})`);
+    
+    img.style.width = targetWidth + 'px';
+    img.style.height = targetHeight + 'px';
+}
+
+// Ajuster la taille de la vidéo dans le modal
+function adjustModalVideoSize(video) {
+    const maxWidth = window.innerWidth * 0.9;
+    const maxHeight = window.innerHeight * 0.9;
+    
+    // Taille par défaut pour les vidéos
+    let targetWidth = Math.min(800, maxWidth);
+    let targetHeight = Math.min(600, maxHeight);
+    
+    // Si on peut obtenir les dimensions réelles
+    if (video.videoWidth && video.videoHeight) {
+        const aspectRatio = video.videoWidth / video.videoHeight;
+        
+        if (targetWidth / targetHeight > aspectRatio) {
+            targetWidth = targetHeight * aspectRatio;
+        } else {
+            targetHeight = targetWidth / aspectRatio;
+        }
+    }
+    
+    console.log(`🎬 Vidéo ajustée: ${targetWidth}x${targetHeight}`);
+    
+    video.style.width = targetWidth + 'px';
+    video.style.height = targetHeight + 'px';
+}
+
+// Fermer le modal média
+function closeMediaModal() {
+    const modal = document.getElementById('mediaModal');
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('🔒 Modal média fermé');
+    }
+    
+    // Nettoyer les event listeners
+    document.removeEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMediaModal();
+        }
+    });
+}
+
+// =====================================
+// GESTION DES MÉDIAS POUR COMMENTAIRES
+// =====================================
+
+// Ouvrir le widget pour les médias de commentaire
+function openCommentMediaWidget(articleId) {
+    if (!cloudinaryWidget) {
+        showMessage('Widget d\'upload non disponible', 'error');
+        return;
+    }
+    
+    currentCommentArticleId = articleId;
+    cloudinaryWidget.open();
+}
+
+// Mettre à jour la prévisualisation des médias du commentaire
+function updateCommentMediaPreview(articleId) {
+    const preview = document.getElementById(`comment-media-preview-${articleId}`);
+    if (!preview || !commentMediaFiles[articleId]) return;
+    
+    const mediaFiles = commentMediaFiles[articleId];
+    
+    preview.innerHTML = mediaFiles.map((media, index) => {
+        const isVideo = media.resourceType === 'video';
+        const optimizedUrl = getOptimizedUrl(media.publicId, media.resourceType, 'thumbnail');
+        
+        return `
+            <div class="media-item" data-index="${index}">
+                ${media.isAudio ? 
+                    `<div class="audio-player">
+                        <audio controls>
+                            <source src="${media.secureUrl}" type="audio/webm">
+                            <source src="${media.secureUrl}" type="audio/ogg">
+                            Votre navigateur ne supporte pas l'audio.
+                        </audio>
+                    </div>` :
+                    (isVideo ? 
+                        `<video src="${optimizedUrl}" muted preload="metadata"></video>` :
+                        `<img src="${optimizedUrl}" alt="Média ${index + 1}">`
+                    )
+                }
+                <button class="remove-media" onclick="removeCommentMedia('${articleId}', ${index})" title="Supprimer">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Supprimer un média d'un commentaire
+function removeCommentMedia(articleId, index) {
+    if (confirm('Supprimer ce média ?')) {
+        if (commentMediaFiles[articleId]) {
+            commentMediaFiles[articleId].splice(index, 1);
+            updateCommentMediaPreview(articleId);
+            showMessage('Média supprimé', 'success');
+        }
+    }
+}
+
+// Réinitialiser les médias d'un commentaire
+function resetCommentMedia(articleId) {
+    commentMediaFiles[articleId] = [];
+    updateCommentMediaPreview(articleId);
+}
+
+// =====================================
+// GESTION DES VIDÉOS YOUTUBE
+// =====================================
+
+// Extraire l'ID YouTube depuis une URL
+function extractYouTubeId(url) {
+    if (!url) return null;
+    
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+}
+
+// Construire HTML pour embed YouTube
+function buildYouTubeHTML(youtubeUrl) {
+    console.log('🎬 buildYouTubeHTML appelé avec:', youtubeUrl);
+    
+    if (!youtubeUrl) {
+        console.log('❌ Pas d\'URL YouTube fournie');
+        return '';
+    }
+    
+    const videoId = extractYouTubeId(youtubeUrl);
+    console.log('🎯 Video ID extrait:', videoId);
+    
+    if (!videoId) {
+        console.log('❌ Impossible d\'extraire l\'ID de la vidéo');
+        return '';
+    }
+    
+    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    console.log('✅ URL embed générée:', embedUrl);
+    
+    return `
+        <div class="youtube-container">
+            <iframe 
+                src="${embedUrl}" 
+                title="YouTube video player" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+            </iframe>
+        </div>
+    `;
+}
+
+// Valider une URL YouTube
+function isValidYouTubeUrl(url) {
+    if (!url) return false;
+    return extractYouTubeId(url) !== null;
+}
+
+// =====================================
+// GESTION DE L'ENREGISTREMENT AUDIO
+// =====================================
+
+// Afficher/masquer l'enregistreur audio
+function toggleAudioRecorder(context) {
+    console.log('🎤 Toggle audio recorder pour:', context);
+    
+    const recorderId = context === 'article' ? 'article-audio-recorder' : `audio-recorder-${context}`;
+    const recorder = document.getElementById(recorderId);
+    
+    if (!recorder) {
+        console.error('❌ Élément enregistreur non trouvé:', recorderId);
+        showMessage('Interface d\'enregistrement non disponible', 'error');
+        return;
+    }
+    
+    const isVisible = recorder.style.display !== 'none';
+    recorder.style.display = isVisible ? 'none' : 'block';
+    
+    console.log('👁️ Visibilité enregistreur:', isVisible ? 'masqué' : 'affiché');
+    
+    if (!isVisible) {
+        initializeAudioRecorder(context);
+    }
+}
+
+// Initialiser l'enregistreur audio
+async function initializeAudioRecorder(context) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showMessage('Enregistrement audio non supporté par votre navigateur', 'error');
+        return;
+    }
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Initialiser l'état pour ce contexte
+        audioRecorderStates[context] = {
+            stream: stream,
+            isRecording: false,
+            startTime: null,
+            audioBlob: null
+        };
+        
+        updateRecordingStatus(context, 'Prêt à enregistrer');
+        
+    } catch (error) {
+        console.error('Erreur accès microphone:', error);
+        showMessage('Impossible d\'accéder au microphone', 'error');
+    }
+}
+
+// Démarrer/arrêter l'enregistrement
+async function toggleRecording(context) {
+    const state = audioRecorderStates[context];
+    
+    if (!state || !state.stream) {
+        await initializeAudioRecorder(context);
+        return;
+    }
+    
+    if (state.isRecording) {
+        stopRecording(context);
+    } else {
+        startRecording(context);
+    }
+}
+
+// Démarrer l'enregistrement
+function startRecording(context) {
+    const state = audioRecorderStates[context];
+    if (!state || !state.stream) return;
+    
+    try {
+        mediaRecorder = new MediaRecorder(state.stream);
+        audioChunks = [];
+        currentRecordingId = context;
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            state.audioBlob = audioBlob;
+            displayAudioPreview(context, audioBlob);
+        };
+        
+        mediaRecorder.start();
+        state.isRecording = true;
+        state.startTime = Date.now();
+        
+        // Démarrer le timer
+        startRecordingTimer(context);
+        
+        // Mettre à jour l'interface
+        const recordBtn = document.getElementById(
+            context === 'article' ? 'article-record-btn' : `record-btn-${context}`
+        );
+        if (recordBtn) {
+            recordBtn.classList.add('recording');
+            recordBtn.textContent = '⏹️';
+        }
+        
+        updateRecordingStatus(context, 'Enregistrement en cours...');
+        
+    } catch (error) {
+        console.error('Erreur démarrage enregistrement:', error);
+        showMessage('Erreur lors du démarrage de l\'enregistrement', 'error');
+    }
+}
+
+// Arrêter l'enregistrement
+function stopRecording(context) {
+    const state = audioRecorderStates[context];
+    if (!state || !mediaRecorder) return;
+    
+    try {
+        mediaRecorder.stop();
+        state.isRecording = false;
+        currentRecordingId = null;
+        
+        // Arrêter le timer
+        stopRecordingTimer();
+        
+        // Mettre à jour l'interface
+        const recordBtn = document.getElementById(
+            context === 'article' ? 'article-record-btn' : `record-btn-${context}`
+        );
+        if (recordBtn) {
+            recordBtn.classList.remove('recording');
+            recordBtn.textContent = '🎤';
+        }
+        
+        updateRecordingStatus(context, 'Enregistrement terminé');
+        
+    } catch (error) {
+        console.error('Erreur arrêt enregistrement:', error);
+        showMessage('Erreur lors de l\'arrêt de l\'enregistrement', 'error');
+    }
+}
+
+// Timer d'enregistrement
+function startRecordingTimer(context) {
+    const state = audioRecorderStates[context];
+    
+    recordingInterval = setInterval(() => {
+        if (state && state.isRecording && state.startTime) {
+            const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            const timeElement = document.getElementById(
+                context === 'article' ? 'article-recording-time' : `recording-time-${context}`
+            );
+            if (timeElement) {
+                timeElement.textContent = timeString;
+            }
+        }
+    }, 1000);
+}
+
+// Arrêter le timer
+function stopRecordingTimer() {
+    if (recordingInterval) {
+        clearInterval(recordingInterval);
+        recordingInterval = null;
+    }
+}
+
+// Mettre à jour le statut d'enregistrement
+function updateRecordingStatus(context, status) {
+    const statusElement = document.getElementById(
+        context === 'article' ? 'article-recording-status' : `recording-status-${context}`
+    );
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+// Afficher la prévisualisation audio
+function displayAudioPreview(context, audioBlob) {
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audioElement = document.getElementById(
+        context === 'article' ? 'article-audio-preview' : `audio-preview-${context}`
+    );
+    
+    if (audioElement) {
+        audioElement.src = audioUrl;
+        audioElement.style.display = 'block';
+        audioElement.load();
+    }
+    
+    // Uploader automatiquement l'audio
+    uploadAudioToCloudinary(audioBlob, context);
+}
+
+// Upload audio vers Cloudinary
+async function uploadAudioToCloudinary(audioBlob, context) {
+    try {
+        updateRecordingStatus(context, 'Upload en cours...');
+        
+        // Convertir le blob en fichier
+        const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
+            type: 'audio/webm'
+        });
+        
+        const result = await uploadToCloudinary(audioFile, 'blog-audio');
+        
+        if (result.success) {
+            const audioData = {
+                publicId: result.publicId,
+                secureUrl: result.secureUrl,
+                resourceType: 'video', // Cloudinary traite l'audio comme vidéo
+                format: result.format,
+                bytes: result.bytes,
+                duration: result.duration || null,
+                isAudio: true
+            };
+            
+            // Ajouter à la liste appropriée
+            if (context === 'article') {
+                articleMediaFiles.push(audioData);
+                updateMediaPreview();
+            } else {
+                if (!commentMediaFiles[context]) {
+                    commentMediaFiles[context] = [];
+                }
+                commentMediaFiles[context].push(audioData);
+                updateCommentMediaPreview(context);
+            }
+            
+            updateRecordingStatus(context, 'Audio ajouté avec succès !');
+            showMessage('Enregistrement audio ajouté !', 'success');
+            
+            // Masquer l'enregistreur après quelques secondes
+            setTimeout(() => {
+                const recorderId = context === 'article' ? 'article-audio-recorder' : `audio-recorder-${context}`;
+                const recorder = document.getElementById(recorderId);
+                if (recorder) {
+                    recorder.style.display = 'none';
+                }
+            }, 2000);
+            
+        } else {
+            updateRecordingStatus(context, 'Erreur upload');
+            showMessage('Erreur lors de l\'upload audio: ' + result.error, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Erreur upload audio:', error);
+        updateRecordingStatus(context, 'Erreur upload');
+        showMessage('Erreur lors de l\'upload audio', 'error');
+    }
+}
+
+// Nettoyer les ressources audio
+function cleanupAudioResources(context) {
+    const state = audioRecorderStates[context];
+    if (state && state.stream) {
+        state.stream.getTracks().forEach(track => track.stop());
+        delete audioRecorderStates[context];
+    }
+    
+    if (recordingInterval) {
+        clearInterval(recordingInterval);
+        recordingInterval = null;
+    }
 }
 
 // JavaScript pour le toggle

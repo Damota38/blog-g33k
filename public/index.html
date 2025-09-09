@@ -4,7 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="/public/images/logo-geek.png" sizes="96x96"/>
+    <link rel="icon" type="image/webp" href="images/logo-geek.webp" sizes="96x96"/>
+    <link rel="shortcut icon" type="image/webp" href="images/logo-geek.webp"/>
+    <link rel="apple-touch-icon" sizes="180x180" href="images/logo-geek.webp">
+    <link rel="icon" type="image/webp" sizes="32x32" href="images/logo-geek.webp">
+    <link rel="icon" type="image/webp" sizes="16x16" href="images/logo-geek.webp">
     <title>Blog G33K</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -15,7 +19,7 @@
         <header>
             <div class="header-content">
                 <div class="titlelogo">
-                    <img src="images/logo-geek.png" alt="logo">
+                    <img src="images/logo-geek.webp" alt="logo">
                     <h1>Le blog G33K</h1>
                 </div>
                 <div class="auth-section">
@@ -35,6 +39,26 @@
 
         <!-- Zone de messages -->
         <div id="messageContainer"></div>
+
+        <!-- Barre de recherche et filtres -->
+        <div class="search-filter-section">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Rechercher des articles..." class="search-input">
+                <button id="searchBtn" class="btn-primary search-btn">🔍</button>
+                <button id="clearSearchBtn" class="btn-secondary clear-btn" style="display: none;">✕</button>
+            </div>
+            <div class="filter-container">
+                <select id="sortFilter" class="filter-select">
+                    <option value="newest">Plus récents</option>
+                    <option value="oldest">Plus anciens</option>
+                    <option value="most-liked">Plus aimés</option>
+                    <option value="most-commented">Plus commentés</option>
+                </select>
+                <select id="authorFilter" class="filter-select">
+                    <option value="all">Tous les auteurs</option>
+                </select>
+            </div>
+        </div>
 
         <!-- Container des articles -->
         <div id="articlesContainer" class="articles-container">
@@ -106,6 +130,27 @@
                     <textarea id="articleContent" required></textarea>
                 </div>
                 <div class="form-group">
+                    <label>Lien YouTube (optionnel)</label>
+                    <input type="url" id="articleYoutubeUrl" placeholder="https://www.youtube.com/watch?v=...">
+                    <small>Collez un lien YouTube pour intégrer une vidéo</small>
+                </div>
+                <div class="form-group">
+                    <label>Médias (Images/Vidéos/Audio)</label>
+                    <div class="media-upload-section">
+                        <div class="media-buttons">
+                            <button type="button" id="addMediaBtn" class="btn-secondary">📎 Ajouter des médias</button>
+                            <button type="button" id="addAudioBtn" class="btn-secondary">🎤 Enregistrer audio</button>
+                        </div>
+                        <div id="articleMediaPreview" class="media-preview"></div>
+                        <div id="article-audio-recorder" class="audio-recorder" style="display: none;">
+                            <button type="button" id="article-record-btn" class="record-btn">🎤</button>
+                            <span id="article-recording-time" class="recording-time">00:00</span>
+                            <span id="article-recording-status" class="recording-status">Appuyez pour enregistrer</span>
+                            <audio id="article-audio-preview" style="display: none;" controls></audio>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>
                         Publier immédiatement
                         <input type="checkbox" id="articlePublished" checked>
@@ -123,8 +168,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
-    <!-- Configuration Firebase (non versionnée) -->
+    
+    <!-- Scripts Cloudinary -->
+    <script src="https://upload-widget.cloudinary.com/global/all.js"></script>
+    
+    <!-- Configuration -->
     <script src="config.js"></script>
+    <script src="cloudinary-config.js"></script>
+    <script src="debug.js"></script>
+    <script src="youtube-test.js"></script>
     <script src="script.js"></script>
 </body>
 
