@@ -7,6 +7,17 @@
     box-sizing: border-box;
 }
 
+.reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0%;
+    height: 3px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 9998;
+    transition: width 0.3s ease;
+}
+
 body {
     margin: 0;
     font-family: 'Segoe UI', sans-serif;
