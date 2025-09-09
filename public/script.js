@@ -970,3 +970,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+/* =====================
+   PROGRESS BAR POUR LECTURE
+   ===================== */
+   setTimeout(() => {
+        setupReadingProgress();
+   })
+
+   function setupReadingProgress() {
+    const progressBar = document.getElementById('readingProgress');
+    if (!progressBar) return;
+
+    window.addEventListener('scroll', updateReadingProgress);
+}
+
+function updateReadingProgress() {
+    const progressBar = document.getElementById('readingProgress');
+    if (!progressBar) return;
+
+    const scrollPercent = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+    progressBar.style.width = Math.min(scrollPercent, 100) + '%';
+}
