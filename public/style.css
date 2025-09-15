@@ -902,3 +902,393 @@ body.dark-mode {
     background: #232323ff;
     color: white;
 }
+
+@media (max-width: 320px) {
+    /* Container principal */
+    .container {
+        padding: 10px;
+    }
+
+    /* Header optimisé pour très petits écrans */
+    header {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .titlelogo {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .titlelogo img {
+        width: 40px;
+        height: 40px;
+    }
+
+    h1 {
+        font-size: 1.3em;
+        text-align: center;
+        word-break: break-word;
+    }
+
+    /* Section d'authentification */
+    .auth-section {
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .auth-section button {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    #userInfo {
+        font-size: 12px;
+        text-align: center;
+        word-break: break-word;
+    }
+
+    /* Recherche et filtres */
+    .search-filter-section {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .search-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .search-input {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+
+    .search-btn, .clear-btn {
+        width: 100%;
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .filter-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .filter-select {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    /* Articles */
+    .article-card {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .article-title {
+        font-size: 1.2em;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+
+    .article-meta {
+        font-size: 0.8em;
+        margin-bottom: 10px;
+    }
+
+    .article-content {
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 15px;
+    }
+
+    /* Actions des articles */
+    .article-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .article-actions button {
+        width: 100%;
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    /* Réactions */
+    .reactions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .reaction-btn {
+        font-size: 12px;
+        padding: 4px 8px;
+        min-width: 60px;
+        justify-content: center;
+    }
+
+    /* Modals */
+    .modal-content {
+        width: 100%;
+        margin: 0;
+        border-radius: 0;
+        padding: 15px;
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+
+    .modal-content h2 {
+        font-size: 1.3em;
+        margin-bottom: 15px;
+    }
+
+    /* Formulaires */
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    label {
+        font-size: 13px;
+        margin-bottom: 3px;
+    }
+
+    input, textarea {
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    textarea {
+        min-height: 120px;
+    }
+
+    .form-group button {
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 10px;
+        font-size: 13px;
+    }
+
+    /* Médias */
+    .media-preview {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .media-item {
+        height: 80px;
+    }
+
+    .media-item img,
+    .media-item video {
+        height: 80px;
+    }
+
+    .media-buttons {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .media-buttons button {
+        width: 100%;
+        font-size: 12px;
+    }
+
+    /* Enregistreur audio */
+    .audio-recorder {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .record-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+
+    .recording-time {
+        font-size: 14px;
+    }
+
+    .recording-status {
+        font-size: 12px;
+        margin: 0;
+    }
+
+    /* YouTube */
+    .youtube-container iframe {
+        height: 180px;
+    }
+
+    /* Médias dans les articles */
+    .article-media {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin: 10px 0;
+    }
+
+    .article-media img,
+    .article-media video {
+        max-height: 200px;
+    }
+
+    /* Commentaires */
+    .comments-section {
+        margin-top: 15px;
+        padding-top: 15px;
+    }
+
+    .comment {
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+
+    .comment-author {
+        font-size: 13px;
+    }
+
+    .comment-content {
+        font-size: 13px;
+        margin-bottom: 3px;
+    }
+
+    .comment-date {
+        font-size: 11px;
+    }
+
+    .comment-media {
+        max-width: 100%;
+    }
+
+    .comment-media img,
+    .comment-media video {
+        max-width: 100%;
+        max-height: 120px;
+    }
+
+    .comment-media-preview {
+        gap: 5px;
+    }
+
+    .comment-media-preview .media-item {
+        width: 60px;
+        height: 60px;
+    }
+
+    .comment-form-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .comment-form-actions button {
+        width: 100%;
+        font-size: 12px;
+    }
+
+    /* Panel admin */
+    .admin-panel {
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+
+    #newArticleBtn {
+        width: 100%;
+        font-size: 13px;
+    }
+
+    /* Messages */
+    #messageContainer {
+        margin-bottom: 15px;
+    }
+
+    #messageContainer > div {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    /* Modal média */
+    .media-modal-content {
+        padding: 5px;
+        max-width: 100vw;
+        max-height: 100vh;
+    }
+
+    .media-modal-content img {
+        min-width: 100px;
+        min-height: 80px;
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .media-modal-content video {
+        min-width: 150px;
+        min-height: 100px;
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .close-modal {
+        top: -30px;
+        right: 0;
+        width: 30px;
+        height: 30px;
+        font-size: 20px;
+    }
+
+    /* Loading */
+    .loading {
+        padding: 20px;
+        font-size: 1em;
+    }
+
+    .spinner {
+        width: 30px;
+        height: 30px;
+        margin: 15px auto;
+    }
+
+    /* Progress bar */
+    .reading-progress {
+        height: 2px;
+    }
+
+    /* Texte général plus lisible */
+    body {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    /* Boutons généraux */
+    button {
+        min-height: 44px; /* Taille minimum recommandée pour le touch */
+        font-size: 13px;
+    }
+
+    /* Liens et éléments cliquables */
+    a, .clickable {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Éviter les débordements */
+    * {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Tables si présentes */
+    table {
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
